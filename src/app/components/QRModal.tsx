@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
-import { InventoryDevice } from '../data/mockData';
+import { InventoryDevice } from '../data/mockData.ts';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from './ui/button';
 import { Download } from 'lucide-react';

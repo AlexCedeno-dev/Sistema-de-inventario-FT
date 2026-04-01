@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { monitoringDevices } from '../data/mockData';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -16,29 +15,111 @@ import {
 } from 'lucide-react';
 import { Progress } from '../components/ui/progress';
 
+type MonitoringDevice = {
+  hostname: string;
+  ip: string;
+  mac: string;
+  usuario: string;
+  plataforma: string;
+  tipoSistema: string;
+  uptime: number;
+  ubicacion?: string;
+  fecha: string;
+  lastSeen: string;
+  estado: string;
+  cpu: {
+    modelo: string;
+    nucleos: number;
+    velocidad_mhz: number;
+    temperatura: number | null;
+  };
+  ram: {
+    totalGB: number;
+    libreGB: number;
+    usoGB: number;
+    porcentaje: number;
+  };
+  discos: {
+    disco: string;
+    tamañoGB: number;
+    usadoGB: number;
+    porcentaje: number;
+  }[];
+  sistema: {
+    edicion: string;
+    version: string;
+    instalado?: string;
+    build?: string;
+    especificacion: string;
+    idDispositivo: string;
+    idProducto: string;
+  };
+};
+
 export function Dashboard() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDevice, setSelectedDevice] = useState<typeof monitoringDevices[0] | null>(null);
+  const [devices, setDevices] = useState<MonitoringDevice[]>([]);
+  const [selectedDevice, setSelectedDevice] = useState<MonitoringDevice | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const onlineDevices = monitoringDevices.filter((d) => d.estado.includes('Online'));
-  const offlineDevices = monitoringDevices.filter((d) => d.estado.includes('Offline'));
+  const loadDevices = async () => {
+    try {
+      const res = await fetch('http://localhost:3005/equipos');
+      const data = await res.json();
 
-  const avgCpuUsage = 
-    monitoringDevices.reduce((acc, device) => acc + device.ram.porcentaje, 0) / monitoringDevices.length;
+      const normalized: MonitoringDevice[] = data.map((device: any) => ({
+        ...device,
+        sistema: {
+          ...device.sistema,
+          instalado: device.sistema?.instalado || device.sistema?.build || 'N/A',
+        },
+      }));
 
-  const highDiskUsage = monitoringDevices.filter((device) =>
-    device.discos.some((disco) => disco.porcentaje > 85)
-  ).length;
+      setDevices(normalized);
 
-  const filteredDevices = monitoringDevices.filter(
-    (device) =>
-      device.hostname.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      device.usuario.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      device.ip.includes(searchTerm)
+      if (selectedDevice) {
+        const updated = normalized.find((d) => d.hostname === selectedDevice.hostname);
+        if (updated) setSelectedDevice(updated);
+      }
+    } catch (error) {
+      console.error('Error cargando equipos:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadDevices();
+    const interval = setInterval(loadDevices, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const onlineDevices = useMemo(
+    () => devices.filter((d) => d.estado.includes('Online')),
+    [devices]
   );
 
-  const handleViewDetails = (device: typeof monitoringDevices[0]) => {
+  const offlineDevices = useMemo(
+    () => devices.filter((d) => d.estado.includes('Offline')),
+    [devices]
+  );
+
+  const highDiskUsage = useMemo(
+    () =>
+      devices.filter((device) =>
+        device.discos?.some((disco) => disco.porcentaje > 85)
+      ).length,
+    [devices]
+  );
+
+  const filteredDevices = useMemo(() => {
+    return devices.filter(
+      (device) =>
+        device.hostname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        device.usuario?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        device.ip?.includes(searchTerm)
+    );
+  }, [devices, searchTerm]);
+
+  const handleViewDetails = (device: MonitoringDevice) => {
     setSelectedDevice(device);
     setIsModalOpen(true);
   };
@@ -59,7 +140,7 @@ export function Dashboard() {
             <Monitor className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{monitoringDevices.length}</div>
+            <div className="text-2xl font-bold">{devices.length}</div>
             <p className="text-xs text-gray-500 mt-1">Equipos monitoreados</p>
           </CardContent>
         </Card>
@@ -72,7 +153,9 @@ export function Dashboard() {
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{onlineDevices.length}</div>
             <p className="text-xs text-gray-500 mt-1">
-              {((onlineDevices.length / monitoringDevices.length) * 100).toFixed(0)}% disponibilidad
+              {devices.length > 0
+                ? `${((onlineDevices.length / devices.length) * 100).toFixed(0)}% disponibilidad`
+                : '0% disponibilidad'}
             </p>
           </CardContent>
         </Card>
@@ -136,7 +219,10 @@ export function Dashboard() {
               </thead>
               <tbody>
                 {filteredDevices.map((device, index) => {
-                  const maxDiskUsage = Math.max(...device.discos.map((d) => d.porcentaje));
+                  const maxDiskUsage = device.discos?.length
+                    ? Math.max(...device.discos.map((d) => d.porcentaje))
+                    : 0;
+
                   return (
                     <tr key={index} className="border-b hover:bg-gray-50">
                       <td className="py-3 px-4">
@@ -154,16 +240,16 @@ export function Dashboard() {
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
                           <Cpu className="h-4 w-4 text-gray-400" />
-                          <span className="text-sm">{device.cpu.nucleos} núcleos</span>
+                          <span className="text-sm">{device.cpu?.nucleos ?? 0} núcleos</span>
                         </div>
                       </td>
                       <td className="py-3 px-4">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <MemoryStick className="h-4 w-4 text-gray-400" />
-                            <span className="text-xs">{device.ram.porcentaje.toFixed(0)}%</span>
+                            <span className="text-xs">{device.ram?.porcentaje?.toFixed(0) ?? 0}%</span>
                           </div>
-                          <Progress value={device.ram.porcentaje} className="h-1.5" />
+                          <Progress value={device.ram?.porcentaje ?? 0} className="h-1.5" />
                         </div>
                       </td>
                       <td className="py-3 px-4">
@@ -172,12 +258,7 @@ export function Dashboard() {
                             <HardDrive className="h-4 w-4 text-gray-400" />
                             <span className="text-xs">{maxDiskUsage.toFixed(0)}%</span>
                           </div>
-                          <Progress
-                            value={maxDiskUsage}
-                            className={`h-1.5 ${
-                              maxDiskUsage > 85 ? 'bg-red-200' : maxDiskUsage > 70 ? 'bg-yellow-200' : ''
-                            }`}
-                          />
+                          <Progress value={maxDiskUsage} className="h-1.5" />
                         </div>
                       </td>
                       <td className="py-3 px-4">

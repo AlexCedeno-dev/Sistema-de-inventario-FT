@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { inventoryDevices } from '../data/mockData';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -24,15 +23,65 @@ import {
   SelectValue,
 } from '../components/ui/select';
 
+type InventoryDevice = {
+  id: string;
+  idEquipo: string;
+  idEmpleado: string;
+  status: string;
+  nombreEmpleado: string;
+  departamento: string;
+  planta: string;
+  tipo: string;
+  marca: string;
+  modelo: string;
+  serviceTag: string;
+  firmado: boolean;
+  bitlocker: string | null;
+  cartaResponsiva: string | null;
+};
+
 export function Inventory() {
+  const [devices, setDevices] = useState<InventoryDevice[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedDevice, setSelectedDevice] = useState<typeof inventoryDevices[0] | null>(null);
+  const [selectedDevice, setSelectedDevice] = useState<InventoryDevice | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
-  const [qrDevice, setQRDevice] = useState<typeof inventoryDevices[0] | null>(null);
+  const [qrDevice, setQRDevice] = useState<InventoryDevice | null>(null);
 
-  const filteredDevices = inventoryDevices.filter((device) => {
+  useEffect(() => {
+    const loadInventory = async () => {
+      try {
+        const res = await fetch('http://localhost:3005/equipos-identificados');
+        const data = await res.json();
+
+        const mapped: InventoryDevice[] = data
+          .filter((d: any) => d.inventario) // solo los identificados
+          .map((d: any) => ({
+             id: `${d.inventario?.equipo_id ?? '0'}-${d.inventario?.empleado_id ?? '0'}`,
+            status: 'Activo',
+            nombreEmpleado: d.inventario?.nombre_completo ?? 'Sin asignar',
+            departamento: d.inventario?.departamento ?? 'N/A',
+            planta: d.inventario?.planta ?? 'N/A',
+            tipo: d.inventario?.tipo ?? 'N/A',
+            marca: 'N/A',
+            modelo: d.inventario?.nombre_equipo ?? d.hostname ?? 'N/A',
+            serviceTag: d.inventario?.service_tag ?? d.sistema?.idDispositivo ?? 'N/A',
+            firmado: false,
+            bitlocker: null,
+            cartaResponsiva: null,
+          }));
+
+        setDevices(mapped);
+      } catch (error) {
+        console.error('Error cargando inventario:', error);
+      }
+    };
+
+    loadInventory();
+  }, []);
+
+  const filteredDevices = devices.filter((device) => {
     const matchesSearch =
       device.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       device.nombreEmpleado.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -44,32 +93,30 @@ export function Inventory() {
     return matchesSearch && matchesStatus;
   });
 
-  const handleViewDetails = (device: typeof inventoryDevices[0]) => {
+  const handleViewDetails = (device: InventoryDevice) => {
     setSelectedDevice(device);
     setIsDetailsModalOpen(true);
   };
 
-  const handleGenerateQR = (device: typeof inventoryDevices[0]) => {
+  const handleGenerateQR = (device: InventoryDevice) => {
     setQRDevice(device);
     setIsQRModalOpen(true);
   };
 
   return (
     <div className="p-8 space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Inventario de Equipos</h1>
         <p className="text-gray-500 mt-1">Gestión de PCs asignadas y documentación</p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Total Equipos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{inventoryDevices.length}</div>
+            <div className="text-2xl font-bold">{devices.length}</div>
           </CardContent>
         </Card>
 
@@ -79,7 +126,7 @@ export function Inventory() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {inventoryDevices.filter((d) => d.status === 'Activo').length}
+              {devices.filter((d) => d.status === 'Activo').length}
             </div>
           </CardContent>
         </Card>
@@ -90,7 +137,7 @@ export function Inventory() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {inventoryDevices.filter((d) => d.firmado).length}
+              {devices.filter((d) => d.firmado).length}
             </div>
           </CardContent>
         </Card>
@@ -101,13 +148,12 @@ export function Inventory() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-purple-600">
-              {inventoryDevices.filter((d) => d.bitlocker !== null).length}
+              {devices.filter((d) => d.bitlocker !== null).length}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
       <div className="flex items-center gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -118,6 +164,7 @@ export function Inventory() {
             className="pl-10"
           />
         </div>
+
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Estado" />
@@ -131,7 +178,6 @@ export function Inventory() {
         </Select>
       </div>
 
-      {/* Inventory Table */}
       <Card>
         <CardHeader>
           <CardTitle>PCs Asignadas</CardTitle>
@@ -141,7 +187,8 @@ export function Inventory() {
             <table className="w-full">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-3 px-4 font-semibold text-sm">ID</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">ID EQUIPO</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">ID EMPLEADO</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">Status</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">Empleado</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">Departamento</th>
@@ -158,6 +205,7 @@ export function Inventory() {
               <tbody>
                 {filteredDevices.map((device) => (
                   <tr key={device.id} className="border-b hover:bg-gray-50">
+                    <td className="py-3 px-4 font-mono text-sm">{device.id}</td>
                     <td className="py-3 px-4 font-mono text-sm">{device.id}</td>
                     <td className="py-3 px-4">
                       <Badge variant={device.status === 'Activo' ? 'default' : 'secondary'}>
@@ -259,7 +307,11 @@ export function Inventory() {
         onOpenChange={setIsDetailsModalOpen}
       />
 
-      <QRModal device={qrDevice} open={isQRModalOpen} onOpenChange={setIsQRModalOpen} />
+      <QRModal
+        device={qrDevice}
+        open={isQRModalOpen}
+        onOpenChange={setIsQRModalOpen}
+      />
     </div>
   );
 }
