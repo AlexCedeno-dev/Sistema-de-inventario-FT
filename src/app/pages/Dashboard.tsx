@@ -20,6 +20,10 @@ type MonitoringDevice = {
   ip: string;
   mac: string;
   usuario: string;
+  empleado?: string;
+  serviceTag?: string;
+  idEmpleado?: string;
+  departamento?: string;
   plataforma: string;
   tipoSistema: string;
   uptime: number;
@@ -62,27 +66,99 @@ export function Dashboard() {
   const [selectedDevice, setSelectedDevice] = useState<MonitoringDevice | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+    const normalizarTag = (value: any) =>
+    String(value ?? '')
+      .trim()
+      .toUpperCase();
+
   const loadDevices = async () => {
     try {
-      const res = await fetch('http://localhost:3005/equipos');
-      const data = await res.json();
+      const [equiposRes, identificadosRes] = await Promise.all([
+        fetch('http://localhost:3005/equipos'),
+        fetch('http://localhost:3005/equipos-identificados'),
+      ]);
 
-      const normalized: MonitoringDevice[] = data.map((device: any) => ({
-        ...device,
-        sistema: {
-          ...device.sistema,
-          instalado: device.sistema?.instalado || device.sistema?.build || 'N/A',
+      const equipos = await equiposRes.json();
+      const identificados = await identificadosRes.json();
+
+      const mapaIdentificados = new Map();
+
+      identificados.forEach((item: any) => {
+        const tag = normalizarTag(
+          item?.inventario?.service_tag ?? item?.sistema?.idDispositivo
+        );
+
+        if (tag) {
+          mapaIdentificados.set(tag, item);
+        }
+      });
+
+      const normalized: MonitoringDevice[] = equipos.map((device: any) => {
+      const serviceTag = normalizarTag(device?.sistema?.idDispositivo);
+      const match = mapaIdentificados.get(serviceTag);
+
+      return {
+        hostname: device.hostname ?? 'N/A',
+        ip: device.ip ?? 'N/A',
+        mac: device.mac ?? 'N/A',
+        usuario: device.usuario ?? 'N/A',
+
+        // empleado REAL desde inventario
+        empleado: match?.inventario?.nombre_completo ?? 'Sin asignar',
+        idEmpleado: match?.inventario?.empleado_id ? String(match.inventario.empleado_id) : 'N/A',
+        departamento: match?.inventario?.departamento ?? 'N/A',
+
+        // service tag para validar cruce
+        serviceTag: match?.inventario?.service_tag ?? match?.sistema?.idDispositivo ?? 'N/A',
+
+        plataforma: match?.plataforma ?? 'N/A',
+        tipoSistema: match?.tipoSistema ?? 'N/A',
+        uptime: match?.uptime ?? 0,
+        ubicacion: match?.ubicacion ?? 'N/A',
+        fecha: device.fecha ?? 'N/A',
+        lastSeen: device.lastSeen ?? 'N/A',
+        estado: device.estado ?? 'Offline',
+
+        cpu: {
+          modelo: device.cpu?.modelo ?? 'N/A',
+          nucleos: device.cpu?.nucleos ?? 0,
+          velocidad_mhz: device.cpu?.velocidad_mhz ?? 0,
+          temperatura: device.cpu?.temperatura ?? null,
         },
-      }));
+
+        ram: {
+          totalGB: device.ram?.totalGB ?? 0,
+          libreGB: device.ram?.libreGB ?? 0,
+          usoGB: device.ram?.usoGB ?? 0,
+          porcentaje: device.ram?.porcentaje ?? 0,
+        },
+
+        discos: Array.isArray(device.discos) ? device.discos : [],
+
+        sistema: {
+          edicion: device.sistema?.edicion ?? 'N/A',
+          version: device.sistema?.version ?? 'N/A',
+          instalado: device.sistema?.instalado || device.sistema?.build || 'N/A',
+          build: device.sistema?.build ?? 'N/A',
+          especificacion: device.sistema?.especificacion ?? 'N/A',
+          idDispositivo: device.sistema?.idDispositivo ?? 'N/A',
+          idProducto: device.sistema?.idProducto ?? 'N/A',
+          },
+        };
+      });
 
       setDevices(normalized);
 
       if (selectedDevice) {
-        const updated = normalized.find((d) => d.hostname === selectedDevice.hostname);
+        const updated = normalized.find(
+          (dev) =>
+            dev.hostname === selectedDevice.hostname &&
+            dev.ip === selectedDevice.ip
+        );
         if (updated) setSelectedDevice(updated);
       }
     } catch (error) {
-      console.error('Error cargando equipos:', error);
+      console.error('Error cargando equipos identificados:', error);
     }
   };
 
@@ -111,12 +187,21 @@ export function Dashboard() {
   );
 
   const filteredDevices = useMemo(() => {
-    return devices.filter(
-      (device) =>
-        device.hostname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        device.usuario?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        device.ip?.includes(searchTerm)
-    );
+    const term = searchTerm.toLowerCase().trim();
+
+    return devices.filter((device) => {
+      const searchableText = `
+        ${device.hostname ?? ''}
+        ${device.empleado ?? ''}
+        ${device.ip ?? ''}
+        ${device.usuario ?? ''}
+        ${device.serviceTag ?? ''}
+        ${device.idEmpleado ?? ''}
+        ${device.departamento ?? ''}
+      `.toLowerCase();
+
+      return searchableText.includes(term);
+    });
   }, [devices, searchTerm]);
 
   const handleViewDetails = (device: MonitoringDevice) => {
@@ -126,13 +211,11 @@ export function Dashboard() {
 
   return (
     <div className="p-8 space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Dashboard de Monitoreo</h1>
         <p className="text-gray-500 mt-1">Vista en tiempo real del estado de los equipos</p>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -183,12 +266,11 @@ export function Dashboard() {
         </Card>
       </div>
 
-      {/* Search */}
       <div className="flex items-center gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
-            placeholder="Buscar por hostname, usuario o IP..."
+            placeholder="Buscar por hostname, empleado, IP, service tag o id empleado..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -196,7 +278,6 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Devices Table */}
       <Card>
         <CardHeader>
           <CardTitle>Equipos Monitoreados</CardTitle>
@@ -209,8 +290,10 @@ export function Dashboard() {
                   <th className="text-left py-3 px-4 font-semibold text-sm">Estado</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">Hostname</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">Usuario</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">Empleado</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">ID Empleado</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">Service Tag</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">IP</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">Ubicación</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">CPU</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">RAM</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">Disco</th>
@@ -235,8 +318,10 @@ export function Dashboard() {
                       </td>
                       <td className="py-3 px-4 font-mono text-sm">{device.hostname}</td>
                       <td className="py-3 px-4 text-sm">{device.usuario}</td>
+                      <td className="py-3 px-4 text-sm">{device.empleado ?? 'N/A'}</td>
+                      <td className="py-3 px-4 font-mono text-sm">{device.idEmpleado ?? 'N/A'}</td>
+                      <td className="py-3 px-4 font-mono text-sm">{device.serviceTag ?? 'N/A'}</td>
                       <td className="py-3 px-4 font-mono text-sm">{device.ip}</td>
-                      <td className="py-3 px-4 text-sm">{device.ubicacion || 'N/A'}</td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
                           <Cpu className="h-4 w-4 text-gray-400" />

@@ -31,6 +31,8 @@ export function MonitoringDetailsModal({ device, open, onOpenChange }: Monitorin
     if (percentage < 80) return 'bg-yellow-500';
     return 'bg-red-500';
   };
+  
+  console.log('Device recibido:', device);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -80,15 +82,15 @@ export function MonitoringDetailsModal({ device, open, onOpenChange }: Monitorin
               </div>
               <div className="bg-gray-50 p-4 rounded-lg col-span-2">
                 <p className="text-sm text-gray-500">Ubicación</p>
-                <p className="font-semibold">{device.ubicacion || 'No especificada'}</p>
+                <p className="font-semibold"> {typeof device.ubicacion === 'string' ? device.ubicacion : 'No especificada'}</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-500">Última Conexión</p>
-                <p className="text-sm">{new Date(device.lastSeen).toLocaleString('es-MX')}</p>
+                <p className="text-sm">{device.lastSeen ? new Date(device.lastSeen).toLocaleString('es-MX') : 'No disponible'}</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-500">Fecha de Registro</p>
-                <p className="text-sm">{new Date(device.fecha).toLocaleString('es-MX')}</p>
+                <p className="text-sm">{device.fecha ? new Date(device.fecha).toLocaleString('es-MX') : 'No disponible'}</p>
               </div>
             </div>
           </TabsContent>
@@ -124,9 +126,9 @@ export function MonitoringDetailsModal({ device, open, onOpenChange }: Monitorin
               <h3 className="font-semibold mb-3">Memoria RAM</h3>
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm">Uso de memoria: {device.ram.porcentaje.toFixed(2)}%</span>
+                  <span className="text-sm">Uso de memoria: {typeof device.ram?.porcentaje === 'number' ? device.ram.porcentaje.toFixed(2) : 'N/A'}%</span>
                   <span className="text-sm font-mono">
-                    {device.ram.usoGB.toFixed(2)} GB / {device.ram.totalGB.toFixed(2)} GB
+                    {device.ram?.usoGB?.toFixed?.(2) ?? 'N/A'} GB / {device.ram?.totalGB?.toFixed?.(2) ?? 'N/A'} GB
                   </span>
                 </div>
                 <Progress value={device.ram.porcentaje} className={getUsageColor(device.ram.porcentaje)} />
@@ -144,15 +146,15 @@ export function MonitoringDetailsModal({ device, open, onOpenChange }: Monitorin
                 <h3 className="font-semibold mb-3">Disco {disco.disco}</h3>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm">Uso del disco: {disco.porcentaje.toFixed(2)}%</span>
+                    <span className="text-sm"> Uso del disco: {typeof disco.porcentaje === 'number' ? disco.porcentaje.toFixed(2) : 'N/A'}%</span>
                     <span className="text-sm font-mono">
-                      {disco.usadoGB} GB / {disco.tamañoGB} GB
+                      {disco.usadoGB ?? 'N/A'} GB / {disco.tamañoGB ?? 'N/A'} GB
                     </span>
                   </div>
                   <Progress value={disco.porcentaje} className={getUsageColor(disco.porcentaje)} />
                   <div className="flex justify-between text-sm text-gray-500">
-                    <span>Usado: {disco.usadoGB} GB</span>
-                    <span>Total: {disco.tamañoGB} GB</span>
+                    <span>Usado: {disco.usadoGB ?? 'N/A'} GB</span>
+                    <span>Total: {disco.tamañoGB ?? 'N/A'} GB</span>
                   </div>
                 </div>
               </div>
