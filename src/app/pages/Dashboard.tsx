@@ -74,8 +74,10 @@ export function Dashboard() {
   const loadDevices = async () => {
     try {
       const [equiposRes, identificadosRes] = await Promise.all([
-        fetch('http://192.168.179.6:3005/equipos'),
-        fetch('http://192.168.179.6:3005/equipos-identificados'),
+        //fetch('http://192.168.179.6:3005/equipos'),
+        //fetch('http://192.168.179.6:3005/equipos-identificados'),
+        fetch('http://localhost:3006/equipos-local'),
+        fetch('http://localhost:3006/equipos-identificados-local'),
       ]);
 
       const equipos = await equiposRes.json();

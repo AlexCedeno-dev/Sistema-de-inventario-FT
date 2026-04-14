@@ -4,23 +4,32 @@ import { Dashboard } from './pages/Dashboard';
 import { Inventory } from './pages/Inventory';
 import { Register } from './pages/Register';
 
-export const router = createBrowserRouter([
+export const router = createBrowserRouter(
+  [
+    {
+      path: '/',
+      Component: Layout,
+      children: [
+        {
+          index: true,
+          Component: Dashboard,
+        },
+        {
+          path: 'dashboard',
+          Component: Dashboard,
+        },
+        {
+          path: 'inventory',
+          Component: Inventory,
+        },
+        {
+          path: 'register',
+          Component: Register,
+        },
+      ],
+    },
+  ],
   {
-    path: '/',
-    Component: Layout,
-    children: [
-      {
-        index: true,
-        Component: Dashboard,
-      },
-      {
-        path: 'inventory',
-        Component: Inventory,
-      },
-      {
-        path: 'register',
-        Component: Register,
-      },
-    ],
-  },
-]);
+    // basename: '/inventory-it',
+  }
+);
