@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  Trash2,
 } from 'lucide-react';
 import {
   Select,
@@ -44,7 +45,7 @@ type InventoryDevice = {
   finGarantia: string | null;
 };
 
-export function Inventory() {
+export function InventoryNew() {
   const { t } = useLanguage();
 
   const [devices, setDevices] = useState<InventoryDevice[]>([]);
@@ -54,46 +55,50 @@ export function Inventory() {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [qrDevice, setQRDevice] = useState<InventoryDevice | null>(null);
+  const [liberandoEquipoId, setLiberandoEquipoId] = useState<string | null>(null);
 
-  const normalizarTag = (value: any) =>
-    String(value ?? '')
-      .trim()
-      .toUpperCase();
+  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3006';
 
-  const toNullableString = (value: any): string | null => {
-    if (value === undefined || value === null) return null;
-    const text = String(value).trim();
-    if (!text) return null;
+  const viewValue = (value: string | null) => value ?? 'N/A';
 
-    const invalidValues = ['undefined', 'null', 'n/a', 'na', 'sin asignar', '0'];
-    if (invalidValues.includes(text.toLowerCase())) return null;
-
-    return text;
-  };
-
-  const viewValue = (value: string | null) => value ?? 'null';
-
-  useEffect(() => {
-  const loadInventory = async () => {
+  const loadInventoryNew = async () => {
     try {
-        //LOCAL
-        const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3006';
-
-      const response = await fetch(`${API_BASE}/inventario-viejo`);
+      const response = await fetch(`${API_BASE}/inventario-nuevo`);
 
       if (!response.ok) {
         throw new Error(`Error ${response.status}`);
       }
 
       const data = await response.json();
-      setDevices(data);
+
+      const mapped = data.map((row: any) => ({
+        id: `${row.equipo_id ?? 'null'}-${row.empleado_id ?? 'null'}`,
+        idEquipo: row.equipo_id != null ? String(row.equipo_id) : null,
+        idEmpleado: row.empleado_id != null ? String(row.empleado_id) : null,
+        status: row.status ?? row.estado_registro ?? null,
+        nombreEmpleado: row.nombre_completo ?? null,
+        departamento: row.departamento ?? null,
+        planta: row.planta ?? null,
+        tipo: row.tipo ?? null,
+        marca: row.marca ?? null,
+        modelo: row.modelo ?? null,
+        hostname: row.hostname_detectado ?? row.nombre_equipo ?? null,
+        serviceTag: row.service_tag ?? null,
+        firmado: false,
+        bitlocker: null,
+        cartaResponsiva: null,
+        finGarantia: row.end_warranty ?? null,
+      }));
+
+      setDevices(mapped);
     } catch (error) {
-      console.error('Error cargando inventario viejo:', error);
+      console.error('Error cargando inventario nuevo:', error);
       setDevices([]);
     }
   };
 
-    loadInventory();
+  useEffect(() => {
+    loadInventoryNew();
   }, []);
 
   const warrantyExpiring = devices.filter((device) => {
@@ -136,19 +141,64 @@ export function Inventory() {
     setIsQRModalOpen(true);
   };
 
+  const handleLiberarEquipo = async (device: InventoryDevice) => {
+    if (!device.idEquipo) {
+      alert('Este equipo no tiene ID válido para liberar.');
+      return;
+    }
+
+    const confirmacion = window.confirm(
+      `¿Seguro que quieres liberar este equipo?\n\nService Tag: ${device.serviceTag ?? 'N/A'}\nEmpleado: ${device.nombreEmpleado ?? 'N/A'}\n\nEl equipo desaparecerá del inventario y volverá a quedar disponible en Agentes.`
+    );
+
+    if (!confirmacion) return;
+
+    try {
+      setLiberandoEquipoId(device.idEquipo);
+
+      const response = await fetch(`${API_BASE}/equipos/${device.idEquipo}/liberar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'No se pudo liberar el equipo');
+      }
+
+      await loadInventoryNew();
+      alert('Equipo liberado correctamente');
+    } catch (error: any) {
+      console.error('Error liberando equipo:', error);
+      alert(error.message || 'Error al liberar equipo');
+    } finally {
+      setLiberandoEquipoId(null);
+    }
+  };
+
+  const handleGenerarResponsiva = (device: InventoryDevice) => {
+    if (!device.idEquipo) {
+      alert('Este equipo no tiene ID válido para generar PDF.');
+      return;
+    }
+
+    window.open(`${API_BASE}/equipos/${device.idEquipo}/responsiva-pdf`, '_blank');
+  };
+
   return (
     <div className="p-8 space-y-6">
-      {/* Header nuevo diseño */}
-      <div className="bg-gradient-to-r from-gray-600 to-gray-800 rounded-2xl p-8 text-white shadow-xl">
+      <div className="bg-gradient-to-r from-slate-700 to-slate-900 rounded-2xl p-8 text-white shadow-xl">
         <div className="flex items-center gap-3 mb-2">
-          <h1 className="text-4xl font-bold">Inventario Viejo</h1>
+          <h1 className="text-4xl font-bold">Inventario Nuevo</h1>
         </div>
-        <p className="text-gray-100 text-lg">
-          Sistema de gestión de PCs asignadas y documentación
+        <p className="text-slate-100 text-lg">
+          Sistema nuevo de gestión de PCs asignadas y documentación
         </p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="pb-2">
@@ -165,7 +215,7 @@ export function Inventory() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {devices.filter((d) => d.status === 'Activo').length}
+              {devices.filter((d) => d.status === 'ACTIVO' || d.status === 'Activo').length}
             </div>
           </CardContent>
         </Card>
@@ -183,9 +233,7 @@ export function Inventory() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              {t('inventory.warrantyExpiring')}
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">{t('inventory.warrantyExpiring')}</CardTitle>
             <AlertCircle className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
@@ -195,10 +243,9 @@ export function Inventory() {
         </Card>
       </div>
 
-      {/* Filtros */}
       <div className="flex items-center gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             placeholder={t('inventory.search')}
             value={searchTerm}
@@ -213,17 +260,16 @@ export function Inventory() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{t('inventory.allStatus')}</SelectItem>
-            <SelectItem value="Activo">{t('inventory.activeStatus')}</SelectItem>
-            <SelectItem value="Mantenimiento">{t('inventory.maintenanceStatus')}</SelectItem>
-            <SelectItem value="Inactivo">{t('inventory.inactiveStatus')}</SelectItem>
+            <SelectItem value="ACTIVO">ACTIVO</SelectItem>
+            <SelectItem value="Activo">Activo</SelectItem>
+            <SelectItem value="Inactivo">Inactivo</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {/* Tabla */}
       <Card>
         <CardHeader>
-          <CardTitle>{t('inventory.assignedPCs')}</CardTitle>
+          <CardTitle>Inventario Nuevo</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -234,53 +280,30 @@ export function Inventory() {
                   <th className="text-left py-3 px-4 font-semibold text-sm">ID EMPLEADO</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">SERVICE TAG</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">HOSTNAME</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">
-                    {t('inventory.status')}
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">
-                    {t('inventory.employee')}
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">
-                    {t('inventory.department')}
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">
-                    {t('inventory.plant')}
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">
-                    {t('inventory.type')}
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">
-                    {t('inventory.brand')}
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">
-                    {t('inventory.model')}
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">
-                    {t('inventory.letter')}
-                  </th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">{t('inventory.status')}</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">{t('inventory.employee')}</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">{t('inventory.department')}</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">{t('inventory.plant')}</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">{t('inventory.type')}</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">{t('inventory.brand')}</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">{t('inventory.model')}</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">{t('inventory.letter')}</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">BitLocker</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">
-                    {t('inventory.signed')}
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">
-                    {t('inventory.actions')}
-                  </th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">{t('inventory.signed')}</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">{t('inventory.actions')}</th>
                 </tr>
               </thead>
+
               <tbody>
-                {filteredDevices.map((device) => (
-                  <tr key={device.id} className="border-b hover:bg-gray-50">
+                {filteredDevices.map((device, index) => (
+                  <tr key={`${device.id}-${index}`} className="border-b hover:bg-gray-50">
                     <td className="py-3 px-4 font-mono text-sm">{viewValue(device.idEquipo)}</td>
                     <td className="py-3 px-4 font-mono text-sm">{viewValue(device.idEmpleado)}</td>
-                    <td className="py-3 px-4 font-mono text-sm">
-                      {viewValue(device.serviceTag)}
-                    </td>
+                    <td className="py-3 px-4 font-mono text-sm">{viewValue(device.serviceTag)}</td>
                     <td className="py-3 px-4 font-mono text-sm">{viewValue(device.hostname)}</td>
 
                     <td className="py-3 px-4">
-                      <Badge
-                        variant={device.status === 'Activo' ? 'default' : 'secondary'}
-                      >
+                      <Badge variant={device.status === 'ACTIVO' || device.status === 'Activo' ? 'default' : 'secondary'}>
                         {viewValue(device.status)}
                       </Badge>
                     </td>
@@ -346,7 +369,7 @@ export function Inventory() {
                     </td>
 
                     <td className="py-3 px-4">
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         <Button
                           size="sm"
                           variant="outline"
@@ -355,12 +378,31 @@ export function Inventory() {
                           <Eye className="h-4 w-4 mr-1" />
                           {t('inventory.details')}
                         </Button>
+
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => handleGenerateQR(device)}
                         >
                           <QrCode className="h-4 w-4" />
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleGenerarResponsiva(device)}
+                        >
+                          Generar PDF
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={!device.idEquipo || liberandoEquipoId === device.idEquipo}
+                          onClick={() => handleLiberarEquipo(device)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          {liberandoEquipoId === device.idEquipo ? 'Liberando...' : 'Liberar'}
                         </Button>
                       </div>
                     </td>
@@ -371,7 +413,9 @@ export function Inventory() {
           </div>
 
           {filteredDevices.length === 0 && (
-            <div className="text-center py-8 text-gray-500">{t('inventory.noResults')}</div>
+            <div className="text-center py-8 text-gray-500">
+              {t('inventory.noResults')}
+            </div>
           )}
         </CardContent>
       </Card>

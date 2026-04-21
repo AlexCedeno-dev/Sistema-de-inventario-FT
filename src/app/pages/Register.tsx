@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate} from 'react-router';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -7,10 +8,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Textarea } from '../components/ui/textarea';
 import { toast } from 'sonner';
-import { Save, Plus } from 'lucide-react';
+import { Save } from 'lucide-react';
+import { getRegisterDataFromAgent } from '../services/register';
+
 
 export function Register() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const [activeTab, setActiveTab] = useState('empleado');
+  const [loadingAgentData, setLoadingAgentData] = useState(false);
 
   // Empleado
   const [nombreEmpleado, setNombreEmpleado] = useState('');
@@ -52,28 +59,124 @@ export function Register() {
   const [usuarioOsticket, setUsuarioOsticket] = useState('');
   const [passwordOsticket, setPasswordOsticket] = useState('');
 
-  const handleSubmit = () => {
-    // Validación básica
+  const monitoreoId = new URLSearchParams(location.search).get('monitoreoId');
+    //LOCAL y server 
+  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3006';
+
+
+  useEffect(() => {
+    const loadAgentData = async () => {
+      if (!monitoreoId) return;
+
+      try {
+        setLoadingAgentData(true);
+
+        const data = await getRegisterDataFromAgent(Number(monitoreoId));
+        const specsAutomaticas = [
+              data.equipo.specs,
+              data.sistema.ram_total_gb ? `${data.sistema.ram_total_gb} GB RAM` : '',
+              data.sistema.plataforma,
+              data.sistema.tipo_sistema,
+              data.sistema.edicion_windows,
+              data.sistema.version_windows
+            ].filter(Boolean).join(' | ');
+
+        setTipo(data.equipo.tipo || '');
+        setMarca(data.equipo.marca || '');
+        setModelo(data.equipo.modelo || '');
+        setServiceTag(data.equipo.service_tag || '');
+        setNombreEquipo(data.equipo.nombre_equipo || '');
+        setEspecificaciones(specsAutomaticas);
+        setUsuarioWindows(data.equipo.hostname_detectado || '');
+        
+
+        if (data.equipo.fecha_compra) {
+          setFechaCompra(data.equipo.fecha_compra.slice(0, 10));
+        }
+
+        if (data.equipo.fecha_asig) {
+          setFechaAsignacion(data.equipo.fecha_asig.slice(0, 10));
+        }
+
+        if (data.equipo.start_warranty) {
+          setInicioGarantia(data.equipo.start_warranty.slice(0, 10));
+        }
+
+        if (data.equipo.end_warranty) {
+          setFinGarantia(data.equipo.end_warranty.slice(0, 10));
+        }
+
+        toast.success('Datos del agente cargados', {
+          description: `Se precargó el equipo ${data.equipo.nombre_equipo || data.equipo.service_tag}`,
+        });
+      } catch (error) {
+        console.error('Error cargando datos del agente:', error);
+        toast.error('No se pudieron cargar los datos del agente');
+      } finally {
+        setLoadingAgentData(false);
+      }
+    };
+
+    loadAgentData();
+  }, [monitoreoId]);
+
+   const handleSubmit = async () => {
+  try {
     if (!nombreEmpleado || !departamento || !planta) {
-      toast.error('Por favor, completa la información del empleado');
-      setActiveTab('empleado');
+      toast.error('Completa datos del empleado');
       return;
     }
 
     if (!tipo || !marca || !modelo || !serviceTag) {
-      toast.error('Por favor, completa la información del equipo');
-      setActiveTab('equipo');
+      toast.error('Completa datos del equipo');
       return;
     }
 
-    // En un entorno real, aquí se enviaría la información al servidor
-    toast.success('Equipo registrado exitosamente', {
-      description: `${nombreEquipo || serviceTag} asignado a ${nombreEmpleado}`,
+    const payload = {
+      monitoreo_id: monitoreoId ? Number(monitoreoId) : null,
+      empleado: {
+        nombre_completo: nombreEmpleado,
+        departamento,
+        planta
+      },
+      equipo: {
+        tipo,
+        marca,
+        modelo,
+        service_tag: serviceTag,
+        nombre_equipo: nombreEquipo || null,
+        specs: especificaciones || null,
+        fecha_compra: fechaCompra || null,
+        fecha_asig: fechaAsignacion || null,
+        start_warranty: inicioGarantia || null,
+        end_warranty: finGarantia || null
+      },
+      windows: {
+        usuarioWindows: usuarioWindows || null,
+        passwordWindows: passwordWindows || null,
+        usuarioAdmin: usuarioAdmin || null,
+        passwordAdmin: passwordAdmin || null
+      }
+    };
+
+    const res = await fetch(`${API_BASE}/registrar-equipo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
 
-    // Resetear formulario
-    resetForm();
-  };
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || 'Error al guardar');
+    }
+
+    toast.success('Equipo registrado correctamente');
+    navigate('/agentes');
+  } catch (error: any) {
+    toast.error(error.message || 'Error al registrar equipo');
+  }
+};
 
   const resetForm = () => {
     setNombreEmpleado('');
@@ -111,11 +214,20 @@ export function Register() {
 
   return (
     <div className="p-8 space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Registrar Equipo de Cómputo</h1>
-        <p className="text-gray-500 mt-1">Completa la información para registrar un nuevo equipo</p>
+        <p className="text-gray-500 mt-1">
+        {monitoreoId
+          ? 'Se seleccionó un agente detectado. Completa la información para registrar el equipo.'
+          : 'Completa la información para registrar un nuevo equipo'}
+        </p>
       </div>
+
+      {loadingAgentData && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          Cargando datos detectados por el agente...
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -150,14 +262,26 @@ export function Register() {
                       <SelectValue placeholder="Seleccionar departamento" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Sistemas">Sistemas</SelectItem>
-                      <SelectItem value="Laboratorio">Laboratorio</SelectItem>
-                      <SelectItem value="Producción">Producción</SelectItem>
-                      <SelectItem value="Desarrollo">Desarrollo</SelectItem>
-                      <SelectItem value="Administración">Administración</SelectItem>
-                      <SelectItem value="Recursos Humanos">Recursos Humanos</SelectItem>
-                      <SelectItem value="Ventas">Ventas</SelectItem>
-                      <SelectItem value="Logística">Logística</SelectItem>
+                      <SelectItem value="Engineering">Engineering</SelectItem>
+                      <SelectItem value="Finance">Finance</SelectItem>
+                      <SelectItem value="Human Resources">Human Resources</SelectItem>
+                      <SelectItem value="IT">IT</SelectItem>
+                      <SelectItem value="Logistics and Foreign Trade">Logistics and Foreign Trade</SelectItem>
+                      <SelectItem value="Maintenance">Maintenance</SelectItem>
+                      <SelectItem value="Manufacture">Manufacture</SelectItem>
+                      <SelectItem value="Materials handling">Materials handling</SelectItem>
+                      <SelectItem value="NPL">NPL</SelectItem>
+                      <SelectItem value="Paint">Paint</SelectItem>
+                      <SelectItem value="Plant Management">Plant Management</SelectItem>
+                      <SelectItem value="Purchase">Purchase</SelectItem>
+                      <SelectItem value="Production Control">Production Control</SelectItem>
+                      <SelectItem value="QA">QA</SelectItem>
+                      <SelectItem value="Safety and Environment">Safety and Environment</SelectItem>
+                      <SelectItem value="Sales">Sales</SelectItem>
+                      <SelectItem value="Scrap">Scrap</SelectItem>
+                      <SelectItem value="Shipping">Shipping</SelectItem>
+                      <SelectItem value="SQA">SQA</SelectItem>
+                      <SelectItem value="Warehouse">Warehouse</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -169,10 +293,10 @@ export function Register() {
                       <SelectValue placeholder="Seleccionar planta" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Planta Norte">Planta Norte</SelectItem>
-                      <SelectItem value="Planta Sur">Planta Sur</SelectItem>
-                      <SelectItem value="Planta Central">Planta Central</SelectItem>
-                      <SelectItem value="Oficinas Matriz">Oficinas Matriz</SelectItem>
+                      <SelectItem value="Planta Piva">PIVA</SelectItem>
+                      <SelectItem value="Chichimeco Planta 2">Chichimeco Planta 2</SelectItem>
+                      <SelectItem value="Chichimeco Planta 3">Chichimeco Planta 3</SelectItem>
+                      <SelectItem value="Bodega">Bodega</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -495,11 +619,12 @@ export function Register() {
           </Tabs>
 
           <div className="flex gap-4 mt-6 pt-6 border-t">
-            <Button onClick={handleSubmit} className="flex-1">
+            <Button type="button" onClick={handleSubmit} className="flex-1">
               <Save className="h-4 w-4 mr-2" />
               Guardar Equipo
             </Button>
-            <Button variant="outline" onClick={resetForm}>
+
+            <Button type="button" variant="outline" onClick={resetForm}>
               Limpiar Formulario
             </Button>
           </div>

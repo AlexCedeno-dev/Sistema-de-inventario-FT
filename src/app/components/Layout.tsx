@@ -1,21 +1,31 @@
-import { Link, Outlet, useLocation } from 'react-router';
-import { Monitor, Package, PlusCircle, Menu } from 'lucide-react';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router';
+import { Monitor, Package, PlusCircle, Menu, Home, LogOut, PackageOpen, Cpu } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from './ui/button';
+import { useAuth } from '../context/AuthContext';
 
 export function Layout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const { logout, user } = useAuth();
 
   const navigation = [
-    { name: 'Dashboard', path: '/', icon: Monitor },
-    { name: 'Inventario', path: '/inventory', icon: Package },
+    { name: 'Inicio', path: '/', icon: Home },
+    { name: 'Dashboard', path: '/dashboard', icon: Monitor },
+    { name: 'Inventario Viejo', path: '/inventory-old', icon: Package },
+    { name: 'Inventario Nuevo', path: '/inventory-new', icon: PackageOpen },
+    { name: 'Agentes', path: '/agentes', icon: Cpu },
     { name: 'Registrar Equipo', path: '/register', icon: PlusCircle },
   ];
 
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
       <aside
         className={`${
           isSidebarOpen ? 'w-64' : 'w-20'
@@ -42,6 +52,7 @@ export function Layout() {
           {navigation.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
+
             return (
               <Link
                 key={item.path}
@@ -59,12 +70,28 @@ export function Layout() {
           })}
         </nav>
 
-        <div className="p-4 border-t border-blue-800">
+        <div className="p-4 border-t border-blue-800 space-y-3">
+          {isSidebarOpen && user && (
+            <div className="text-xs text-blue-200 mb-2">
+              <p className="font-semibold">Usuario: {user}</p>
+            </div>
+          )}
+
+          <Button
+            variant="ghost"
+            onClick={handleLogout}
+            className={`w-full text-white hover:bg-blue-800 ${
+              !isSidebarOpen && 'px-2'
+            }`}
+          >
+            <LogOut className="h-5 w-5" />
+            {isSidebarOpen && <span className="ml-2">Cerrar Sesión</span>}
+          </Button>
+
           {isSidebarOpen ? (
             <div className="text-xs text-blue-200">
               <p>© 2026 Sistema IT</p>
-              <p>Versión 1.0.2
-              </p>
+              <p>Versión 1.0.3</p>
             </div>
           ) : (
             <div className="h-8" />
@@ -72,8 +99,7 @@ export function Layout() {
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto relative">
         <Outlet />
       </main>
     </div>
