@@ -9,6 +9,7 @@ import { Home } from './pages/Home';
 import {Agentes} from './pages/Agentes';
 import { InventoryABC } from './pages/InventoryABC';
 import { useAuth } from './context/AuthContext';
+import { FirmaEquipo } from './pages/FirmaEquipo';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -41,6 +42,10 @@ export const router = createBrowserRouter(
           <Login />
         </PublicRoute>
       ),
+    },
+    {
+      path:'firma/:token',
+      Component: FirmaEquipo
     },
     {
       path: '/',

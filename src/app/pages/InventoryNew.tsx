@@ -4,7 +4,9 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
 import { DeviceDetailsModal, type InventoryDeviceModal } from '../components/DeviceDetailsModal';
+import { SignatureModal } from '../components/SignatureModal';
 import { QRModal } from '../components/QRModal';
+import QRCode from 'react-qr-code';
 import {
   Search,
   Download,
@@ -231,6 +233,12 @@ export function InventoryNew() {
   const [qrDevice, setQRDevice] = useState<InventoryDevice | null>(null);
   const [liberandoEquipoId, setLiberandoEquipoId] = useState<string | null>(null);
 
+  const [isSignatureOpen, setIsSignatureOpen] = useState(false);
+  const [deviceToSign, setDeviceToSign] = useState<InventoryDevice | null>(null);
+
+  const [firmaLink,setFirmaLink]=useState('');
+  const [qrOpen,setQrOpen]=useState(false); 
+
   // Estados para alertas y diálogos
   const [alert, setAlert] = useState<{
     open: boolean;
@@ -292,6 +300,7 @@ export function InventoryNew() {
         serviceTag: row.service_tag ?? null,
         firmado: !!row.carta_responsiva,
         bitlocker: row.bitlocker ?? null,
+        rutaBitlocker: row.ruta_bitlocker ?? null,
         cartaResponsiva: row.carta_responsiva ?? null,
         rutaCartaResponsiva: row.ruta_carta_responsiva ?? null,
         finGarantia: row.end_warranty ?? null,
@@ -478,6 +487,153 @@ export function InventoryNew() {
     }
 
     window.open(`${API_BASE}/equipos/${device.idEquipo}/responsiva-firmada`, '_blank');
+  };
+
+  const handleSubirBitlocker = async (device: InventoryDevice) => {
+
+    if (!device.idEquipo) return;
+
+    const input = document.createElement('input');
+    input.type='file';
+    input.accept='application/pdf';
+
+    input.onchange = async (e:any) => {
+
+      const file = e.target.files?.[0];
+      if(!file) return;
+
+      const formData = new FormData();
+      formData.append('archivo', file);
+
+      await fetch(
+        `${API_BASE}/equipos/${device.idEquipo}/bitlocker`,
+        {
+          method:'POST',
+          body: formData
+        }
+      );
+
+      await loadInventoryNew();
+    };
+
+    input.click();
+};
+
+const handleDescargarBitlocker = (
+    device: InventoryDevice
+    ) => {
+
+    window.open(
+      `${API_BASE}/equipos/${device.idEquipo}/bitlocker`,
+      '_blank'
+    );
+};
+
+const handleAbrirFirma = (device: InventoryDevice) => {
+  setDeviceToSign(device);
+  setIsSignatureOpen(true);
+};
+
+const handleGuardarFirmaDigital = async (firmas: {
+  firmaITBase64: string;
+  firmaReceptorBase64: string;
+}) => {
+  if (!deviceToSign?.idEquipo) {
+    showAlert('Error', 'Equipo sin ID válido', 'error');
+    return;
+  }
+
+  setPromptDialog({
+    open: true,
+    title: 'Confirmar entrega',
+    description: 'Ingresa el nombre de quien entrega el equipo:',
+    placeholder: 'Ej: Alejandro Cedeño',
+    onConfirm: async (entregadoPor) => {
+      try {
+        const response = await fetch(
+          `${API_BASE}/equipos/${deviceToSign.idEquipo}/responsiva-firma-digital`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              firmaITBase64: firmas.firmaITBase64,
+              firmaReceptorBase64: firmas.firmaReceptorBase64,
+              entregadoPor,
+            }),
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'No se pudo guardar la firma');
+        }
+
+        showAlert('¡Éxito!', 'Responsiva firmada digitalmente', 'success');
+        await loadInventoryNew();
+      } catch (error: any) {
+        showAlert('Error', error.message || 'Error al guardar firma', 'error');
+      }
+    },
+  });
+};
+
+  const handleGenerarFirmaMovil = (device:any) => {
+
+  setPromptDialog({
+    open:true,
+    title:'Firma por teléfono',
+    description:
+  'Nombre de quien entrega el equipo:',
+    placeholder:'Ej. Alejandro',
+
+    onConfirm: async (entregadoPor)=>{
+
+    try{
+
+      const res=
+      await fetch(
+  `${API_BASE}/equipos/${device.idEquipo}/generar-link-firma`,
+  {
+  method:'POST',
+  headers:{
+    'Content-Type':
+    'application/json'
+  },
+  body:JSON.stringify({
+    entregadoPor
+  })
+  }
+  );
+
+  const json=
+  await res.json();
+
+  if(!res.ok){
+    throw new Error(
+      json.error
+    );
+  }
+
+  setFirmaLink(
+    json.url
+  );
+
+  setQrOpen(true);
+
+    }catch(error:any){
+
+  showAlert(
+  'Error',
+  error.message,
+  'error'
+  );
+
+    }
+
+    }
+  });
+
   };
 
   return (
@@ -748,6 +904,7 @@ export function InventoryNew() {
                               size="sm"
                               variant="ghost"
                               className="h-9 w-9 p-0 hover:bg-green-100"
+                              onClick={() => handleDescargarBitlocker(device)}
                             >
                               <Download className="h-4 w-4 text-green-600" />
                             </Button>
@@ -761,6 +918,7 @@ export function InventoryNew() {
                               size="sm"
                               variant="ghost"
                               className="h-9 w-9 p-0 hover:bg-blue-100"
+                              onClick={() => handleSubirBitlocker(device)}
                             >
                               <Upload className="h-4 w-4 text-blue-600" />
                             </Button>
@@ -786,7 +944,7 @@ export function InventoryNew() {
                           size="sm"
                           variant="outline"
                           className="h-8 border-indigo-300 text-indigo-600 hover:bg-indigo-50"
-                          onClick={() => handleSubirResponsivaFirmada(device)}
+                          onClick={() => handleGenerarFirmaMovil(device)}
                         >
                           {t('inventory.sign')}
                         </Button>
@@ -892,6 +1050,69 @@ export function InventoryNew() {
         onConfirm={promptDialog.onConfirm}
         placeholder={promptDialog.placeholder}
       />
+
+      <SignatureModal
+          open={isSignatureOpen}
+          onOpenChange={setIsSignatureOpen}
+          onSave={handleGuardarFirmaDigital}
+        />
+
+        {qrOpen && (
+<div className="
+fixed inset-0
+bg-black/50
+flex items-center
+justify-center
+z-50
+">
+
+<div className="
+bg-white
+p-6
+rounded-xl
+shadow-xl
+text-center
+max-w-sm
+">
+
+<h3 className="
+font-bold mb-4
+">
+Escanea para firmar
+</h3>
+
+<div className="
+bg-white
+p-4
+inline-block
+">
+<QRCode
+ value={firmaLink}
+ size={220}
+/>
+</div>
+
+<p className="
+text-xs mt-4 break-all
+">
+{firmaLink}
+</p>
+
+<button
+onClick={()=>setQrOpen(false)}
+className="
+mt-5
+px-4 py-2
+bg-blue-700
+text-white rounded
+"
+>
+Cerrar
+</button>
+
+</div>
+</div>
+)}
     </div>
   );
 }
