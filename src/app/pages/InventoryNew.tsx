@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
-import { DeviceDetailsModal } from '../components/DeviceDetailsModal';
+import { DeviceDetailsModal, type InventoryDeviceModal } from '../components/DeviceDetailsModal';
 import { QRModal } from '../components/QRModal';
 import {
   Search,
@@ -16,6 +16,13 @@ import {
   XCircle,
   AlertCircle,
   Trash2,
+  PackageOpen,
+  Laptop,
+  FileText,
+  Clock,
+  AlertTriangle,
+  CheckCircle,
+  Info,
 } from 'lucide-react';
 import {
   Select,
@@ -24,26 +31,193 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '../components/ui/alert-dialog';
 import { useLanguage } from '../context/LanguageContext';
 
-type InventoryDevice = {
-  id: string;
-  idEquipo: string | null;
-  idEmpleado: string | null;
-  status: string | null;
-  nombreEmpleado: string | null;
-  departamento: string | null;
-  planta: string | null;
-  tipo: string | null;
-  marca: string | null;
-  modelo: string | null;
-  hostname: string | null;
-  serviceTag: string | null;
-  firmado: boolean;
-  bitlocker: string | null;
-  cartaResponsiva: string | null;
-  finGarantia: string | null;
-};
+type InventoryDevice = InventoryDeviceModal;
+
+// ============ COMPONENTES DE ALERTA PERSONALIZADOS ============
+
+interface CustomAlertProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  type?: 'success' | 'error' | 'warning' | 'info';
+}
+
+function CustomAlert({ open, onOpenChange, title, description, type = 'info' }: CustomAlertProps) {
+  const getIcon = () => {
+    switch (type) {
+      case 'success':
+        return <CheckCircle className="h-6 w-6 text-green-600" />;
+      case 'error':
+        return <XCircle className="h-6 w-6 text-red-600" />;
+      case 'warning':
+        return <AlertTriangle className="h-6 w-6 text-orange-600" />;
+      default:
+        return <Info className="h-6 w-6 text-blue-600" />;
+    }
+  };
+
+  const getColor = () => {
+    switch (type) {
+      case 'success':
+        return 'text-green-600';
+      case 'error':
+        return 'text-red-600';
+      case 'warning':
+        return 'text-orange-600';
+      default:
+        return 'text-blue-600';
+    }
+  };
+
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent className="max-w-md">
+        <AlertDialogHeader>
+          <div className="flex items-center gap-3">
+            {getIcon()}
+            <AlertDialogTitle className={getColor()}>{title}</AlertDialogTitle>
+          </div>
+          <AlertDialogDescription className="text-base pt-2">
+            {description}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogAction onClick={() => onOpenChange(false)}>
+            Entendido
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+interface ConfirmDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  onConfirm: () => void;
+  confirmText?: string;
+  cancelText?: string;
+  variant?: 'default' | 'destructive';
+}
+
+function ConfirmDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  onConfirm,
+  confirmText = 'Confirmar',
+  cancelText = 'Cancelar',
+  variant = 'default',
+}: ConfirmDialogProps) {
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent className="max-w-md">
+        <AlertDialogHeader>
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-6 w-6 text-orange-600" />
+            <AlertDialogTitle className="text-orange-600">{title}</AlertDialogTitle>
+          </div>
+          <AlertDialogDescription className="text-base pt-2 whitespace-pre-line">
+            {description}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => onOpenChange(false)}>
+            {cancelText}
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              onConfirm();
+              onOpenChange(false);
+            }}
+            className={variant === 'destructive' ? 'bg-red-600 hover:bg-red-700' : ''}
+          >
+            {confirmText}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+interface PromptDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  onConfirm: (value: string) => void;
+  placeholder?: string;
+  confirmText?: string;
+  cancelText?: string;
+}
+
+function PromptDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  onConfirm,
+  placeholder = '',
+  confirmText = 'Aceptar',
+  cancelText = 'Cancelar',
+}: PromptDialogProps) {
+  const [value, setValue] = useState('');
+
+  useEffect(() => {
+    if (!open) setValue('');
+  }, [open]);
+
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent className="max-w-md">
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription className="pt-2">{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <Input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={placeholder}
+          className="my-2"
+        />
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => onOpenChange(false)}>
+            {cancelText}
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              if (value.trim()) {
+                onConfirm(value.trim());
+                onOpenChange(false);
+              }
+            }}
+            disabled={!value.trim()}
+          >
+            {confirmText}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+// ============ COMPONENTE PRINCIPAL ============
 
 export function InventoryNew() {
   const { t } = useLanguage();
@@ -57,9 +231,41 @@ export function InventoryNew() {
   const [qrDevice, setQRDevice] = useState<InventoryDevice | null>(null);
   const [liberandoEquipoId, setLiberandoEquipoId] = useState<string | null>(null);
 
+  // Estados para alertas y diálogos
+  const [alert, setAlert] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    type: 'success' | 'error' | 'warning' | 'info';
+  }>({ open: false, title: '', description: '', type: 'info' });
+
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+    variant?: 'default' | 'destructive';
+  }>({ open: false, title: '', description: '', onConfirm: () => {} });
+
+  const [promptDialog, setPromptDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    onConfirm: (value: string) => void;
+    placeholder?: string;
+  }>({ open: false, title: '', description: '', onConfirm: () => {}, placeholder: '' });
+
   const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3006';
 
   const viewValue = (value: string | null) => value ?? 'N/A';
+
+  const showAlert = (
+    title: string,
+    description: string,
+    type: 'success' | 'error' | 'warning' | 'info' = 'info'
+  ) => {
+    setAlert({ open: true, title, description, type });
+  };
 
   const loadInventoryNew = async () => {
     try {
@@ -71,7 +277,7 @@ export function InventoryNew() {
 
       const data = await response.json();
 
-      const mapped = data.map((row: any) => ({
+      const mapped: InventoryDevice[] = data.map((row: any) => ({
         id: `${row.equipo_id ?? 'null'}-${row.empleado_id ?? 'null'}`,
         idEquipo: row.equipo_id != null ? String(row.equipo_id) : null,
         idEmpleado: row.empleado_id != null ? String(row.empleado_id) : null,
@@ -84,10 +290,29 @@ export function InventoryNew() {
         modelo: row.modelo ?? null,
         hostname: row.hostname_detectado ?? row.nombre_equipo ?? null,
         serviceTag: row.service_tag ?? null,
-        firmado: false,
-        bitlocker: null,
-        cartaResponsiva: null,
+        firmado: !!row.carta_responsiva,
+        bitlocker: row.bitlocker ?? null,
+        cartaResponsiva: row.carta_responsiva ?? null,
+        rutaCartaResponsiva: row.ruta_carta_responsiva ?? null,
         finGarantia: row.end_warranty ?? null,
+
+        usuarioWindows: row.local_user_windows ?? '',
+        passwordWindows: row.password_windows ?? '',
+        usuarioAdmin: row.usuario_admin ?? '',
+        passwordAdmin: row.password_admin ?? '',
+
+        usuarioEnrollado: row.usuario_enrollado ?? '',
+        passwordEnrollado: row.password_enrollado ?? '',
+        licenciaOffice: row.licencia_office ?? '',
+
+        usuarioExmail: row.usuario_exmail ?? '',
+        passwordExmail: row.password_exmail ?? '',
+        usuarioNAS: row.usuario_nas ?? '',
+        passwordNAS: row.password_nas ?? '',
+        usuarioVPN: row.usuario_vpn ?? '',
+        passwordVPN: row.password_vpn ?? '',
+        usuarioOsticket: row.usuario_osticket ?? '',
+        passwordOsticket: row.password_osticket ?? '',
       }));
 
       setDevices(mapped);
@@ -143,119 +368,227 @@ export function InventoryNew() {
 
   const handleLiberarEquipo = async (device: InventoryDevice) => {
     if (!device.idEquipo) {
-      alert('Este equipo no tiene ID válido para liberar.');
+      showAlert('Error', 'Este equipo no tiene ID válido para liberar.', 'error');
       return;
     }
 
-    const confirmacion = window.confirm(
-      `¿Seguro que quieres liberar este equipo?\n\nService Tag: ${device.serviceTag ?? 'N/A'}\nEmpleado: ${device.nombreEmpleado ?? 'N/A'}\n\nEl equipo desaparecerá del inventario y volverá a quedar disponible en Agentes.`
-    );
+    setConfirmDialog({
+      open: true,
+      title: '¿Confirmar liberación de equipo?',
+      description: `¿Seguro que quieres liberar este equipo?\n\nService Tag: ${device.serviceTag ?? 'N/A'}\nEmpleado: ${device.nombreEmpleado ?? 'N/A'}\n\nEl equipo desaparecerá del inventario y volverá a quedar disponible en Agentes.`,
+      variant: 'destructive',
+      onConfirm: async () => {
+        try {
+          setLiberandoEquipoId(device.idEquipo);
 
-    if (!confirmacion) return;
+          const response = await fetch(`${API_BASE}/equipos/${device.idEquipo}/liberar`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
 
-    try {
-      setLiberandoEquipoId(device.idEquipo);
+          const data = await response.json();
 
-      const response = await fetch(`${API_BASE}/equipos/${device.idEquipo}/liberar`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+          if (!response.ok) {
+            throw new Error(data.error || 'No se pudo liberar el equipo');
+          }
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'No se pudo liberar el equipo');
-      }
-
-      await loadInventoryNew();
-      alert('Equipo liberado correctamente');
-    } catch (error: any) {
-      console.error('Error liberando equipo:', error);
-      alert(error.message || 'Error al liberar equipo');
-    } finally {
-      setLiberandoEquipoId(null);
-    }
+          await loadInventoryNew();
+          showAlert('¡Éxito!', 'Equipo liberado correctamente', 'success');
+        } catch (error: any) {
+          console.error('Error liberando equipo:', error);
+          showAlert('Error', error.message || 'Error al liberar equipo', 'error');
+        } finally {
+          setLiberandoEquipoId(null);
+        }
+      },
+    });
   };
 
   const handleGenerarResponsiva = (device: InventoryDevice) => {
     if (!device.idEquipo) {
-      alert('Este equipo no tiene ID válido para generar PDF.');
+      showAlert('Error', 'Este equipo no tiene ID válido para generar PDF.', 'error');
       return;
     }
 
-    window.open(`${API_BASE}/equipos/${device.idEquipo}/responsiva-pdf`, '_blank');
+    setPromptDialog({
+      open: true,
+      title: 'Generar Carta Responsiva',
+      description: 'Ingresa el nombre de quien entrega el equipo:',
+      placeholder: 'Ej: Juan Pérez',
+      onConfirm: (entregadoPor) => {
+        const nombre = encodeURIComponent(entregadoPor);
+        window.open(
+          `${API_BASE}/equipos/${device.idEquipo}/responsiva-pdf?entregadoPor=${nombre}`,
+          '_blank'
+        );
+      },
+    });
+  };
+
+  const handleSubirResponsivaFirmada = async (device: InventoryDevice) => {
+    if (!device.idEquipo) {
+      showAlert('Error', 'Equipo sin ID válido', 'error');
+      return;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/pdf';
+
+    input.onchange = async (event: Event) => {
+      const target = event.target as HTMLInputElement;
+      const file = target.files?.[0];
+
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('archivo', file);
+
+      try {
+        const response = await fetch(
+          `${API_BASE}/equipos/${device.idEquipo}/responsiva-firmada`,
+          {
+            method: 'POST',
+            body: formData,
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'No se pudo subir la responsiva');
+        }
+
+        showAlert('¡Éxito!', 'Responsiva firmada subida correctamente', 'success');
+        await loadInventoryNew();
+      } catch (error: any) {
+        showAlert('Error', error.message || 'Error al subir responsiva', 'error');
+      }
+    };
+
+    input.click();
+  };
+
+  const handleDescargarResponsiva = (device: InventoryDevice) => {
+    if (!device.idEquipo) {
+      showAlert('Error', 'Equipo sin ID válido', 'error');
+      return;
+    }
+
+    window.open(`${API_BASE}/equipos/${device.idEquipo}/responsiva-firmada`, '_blank');
   };
 
   return (
     <div className="p-8 space-y-6">
-      <div className="bg-gradient-to-r from-slate-700 to-slate-900 rounded-2xl p-8 text-white shadow-xl">
-        <div className="flex items-center gap-3 mb-2">
-          <h1 className="text-4xl font-bold">Inventario Nuevo</h1>
+      {/* Header con degradado mejorado */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 rounded-2xl p-8 text-white shadow-2xl">
+        <div className="absolute inset-0 bg-black/10"></div>
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+              <PackageOpen className="h-8 w-8" />
+            </div>
+            <h1 className="text-4xl font-bold">Inventario Nuevo</h1>
+          </div>
+          <p className="text-white/90 text-lg font-medium">
+            Sistema nuevo de gestión de PCs asignadas y documentación
+          </p>
         </div>
-        <p className="text-slate-100 text-lg">
-          Sistema nuevo de gestión de PCs asignadas y documentación
-        </p>
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
       </div>
 
+      {/* Cards de estadísticas mejorados */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">{t('inventory.totalDevices')}</CardTitle>
+        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                {t('inventory.totalDevices')}
+              </CardTitle>
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Laptop className="h-5 w-5 text-blue-600" />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{devices.length}</div>
+            <div className="text-3xl font-bold text-blue-600">{devices.length}</div>
+            <p className="text-xs text-gray-500 mt-1">Equipos registrados</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">{t('inventory.active')}</CardTitle>
+        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                {t('inventory.active')}
+              </CardTitle>
+              <div className="p-2 bg-green-100 rounded-lg">
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-3xl font-bold text-green-600">
               {devices.filter((d) => d.status === 'ACTIVO' || d.status === 'Activo').length}
             </div>
+            <p className="text-xs text-gray-500 mt-1">En uso actualmente</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">{t('inventory.signed')}</CardTitle>
+        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                {t('inventory.signed')}
+              </CardTitle>
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <FileText className="h-5 w-5 text-purple-600" />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
+            <div className="text-3xl font-bold text-purple-600">
               {devices.filter((d) => d.firmado).length}
             </div>
+            <p className="text-xs text-gray-500 mt-1">Con documentación</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t('inventory.warrantyExpiring')}</CardTitle>
-            <AlertCircle className="h-4 w-4 text-orange-600" />
+        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-medium text-gray-600">
+                {t('inventory.warrantyExpiring')}
+              </CardTitle>
+              <div className="p-2 bg-orange-100 rounded-lg">
+                <Clock className="h-5 w-5 text-orange-600" />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">{warrantyExpiring}</div>
+            <div className="text-3xl font-bold text-orange-600">{warrantyExpiring}</div>
             <p className="text-xs text-gray-500 mt-1">{t('inventory.expiringSoon')}</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="flex items-center gap-4">
+      {/* Barra de búsqueda y filtros mejorada */}
+      <div className="flex items-center gap-4 bg-white p-4 rounded-xl shadow-md">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
           <Input
             placeholder={t('inventory.search')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className="pl-11 h-12 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
           />
         </div>
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[200px] h-12 border-gray-300">
             <SelectValue placeholder={t('inventory.status')} />
           </SelectTrigger>
           <SelectContent>
@@ -267,112 +600,205 @@ export function InventoryNew() {
         </Select>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Inventario Nuevo</CardTitle>
+      {/* Tabla mejorada - Parte 1 */}
+      <Card className="border-0 shadow-xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 border-b">
+          <CardTitle className="text-xl flex items-center gap-2">
+            <PackageOpen className="h-6 w-6 text-indigo-600" />
+            Inventario Nuevo ({filteredDevices.length} equipos)
+          </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left py-3 px-4 font-semibold text-sm">ID EQUIPO</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">ID EMPLEADO</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">SERVICE TAG</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">HOSTNAME</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">{t('inventory.status')}</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">{t('inventory.employee')}</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">{t('inventory.department')}</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">{t('inventory.plant')}</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">{t('inventory.type')}</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">{t('inventory.brand')}</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">{t('inventory.model')}</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">{t('inventory.letter')}</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">BitLocker</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">{t('inventory.signed')}</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">{t('inventory.actions')}</th>
+              <thead className="bg-gradient-to-r from-gray-100 to-gray-50 sticky top-0 z-10">
+                <tr className="border-b-2 border-gray-200">
+                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
+                    ID Equipo
+                  </th>
+                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
+                    ID Empleado
+                  </th>
+                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
+                    Service Tag
+                  </th>
+                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
+                    Hostname
+                  </th>
+                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
+                    {t('inventory.status')}
+                  </th>
+                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
+                    {t('inventory.employee')}
+                  </th>
+                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
+                    {t('inventory.department')}
+                  </th>
+                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
+                    {t('inventory.plant')}
+                  </th>
+                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
+                    {t('inventory.type')}
+                  </th>
+                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
+                    {t('inventory.brand')}
+                  </th>
+                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
+                    {t('inventory.model')}
+                  </th>
+                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
+                    {t('inventory.letter')}
+                  </th>
+                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
+                    BitLocker
+                  </th>
+                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
+                    {t('inventory.signed')}
+                  </th>
+                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
+                    {t('inventory.actions')}
+                  </th>
                 </tr>
               </thead>
 
               <tbody>
                 {filteredDevices.map((device, index) => (
-                  <tr key={`${device.id}-${index}`} className="border-b hover:bg-gray-50">
-                    <td className="py-3 px-4 font-mono text-sm">{viewValue(device.idEquipo)}</td>
-                    <td className="py-3 px-4 font-mono text-sm">{viewValue(device.idEmpleado)}</td>
-                    <td className="py-3 px-4 font-mono text-sm">{viewValue(device.serviceTag)}</td>
-                    <td className="py-3 px-4 font-mono text-sm">{viewValue(device.hostname)}</td>
+                  <tr
+                    key={`${device.id}-${index}`}
+                    className="border-b hover:bg-gradient-to-r hover:from-indigo-50/50 hover:to-purple-50/50 transition-all duration-200"
+                  >
+                    <td className="py-4 px-4 font-mono text-sm font-semibold text-indigo-600">
+                      {viewValue(device.idEquipo)}
+                    </td>
+                    <td className="py-4 px-4 font-mono text-sm">{viewValue(device.idEmpleado)}</td>
+                    <td className="py-4 px-4 font-mono text-sm font-medium">
+                      {viewValue(device.serviceTag)}
+                    </td>
+                    <td className="py-4 px-4 font-mono text-sm">{viewValue(device.hostname)}</td>
 
-                    <td className="py-3 px-4">
-                      <Badge variant={device.status === 'ACTIVO' || device.status === 'Activo' ? 'default' : 'secondary'}>
+                    <td className="py-4 px-4">
+                      <Badge
+                        variant={
+                          device.status === 'ACTIVO' || device.status === 'Activo'
+                            ? 'default'
+                            : 'secondary'
+                        }
+                        className={
+                          device.status === 'ACTIVO' || device.status === 'Activo'
+                            ? 'bg-green-500 hover:bg-green-600'
+                            : ''
+                        }
+                      >
                         {viewValue(device.status)}
                       </Badge>
                     </td>
 
-                    <td className="py-3 px-4 text-sm">{viewValue(device.nombreEmpleado)}</td>
-                    <td className="py-3 px-4 text-sm">{viewValue(device.departamento)}</td>
-                    <td className="py-3 px-4 text-sm">{viewValue(device.planta)}</td>
-                    <td className="py-3 px-4 text-sm">{viewValue(device.tipo)}</td>
-                    <td className="py-3 px-4 text-sm">{viewValue(device.marca)}</td>
-                    <td className="py-3 px-4 text-sm">{viewValue(device.modelo)}</td>
+                    <td className="py-4 px-4 text-sm font-medium">
+                      {viewValue(device.nombreEmpleado)}
+                    </td>
+                    <td className="py-4 px-4 text-sm">{viewValue(device.departamento)}</td>
+                    <td className="py-4 px-4 text-sm">{viewValue(device.planta)}</td>
+                    <td className="py-4 px-4 text-sm">{viewValue(device.tipo)}</td>
+                    <td className="py-4 px-4 text-sm">{viewValue(device.marca)}</td>
+                    <td className="py-4 px-4 text-sm">{viewValue(device.modelo)}</td>
 
-                    <td className="py-3 px-4">
-                      <div className="flex gap-1">
+                    <td className="py-4 px-4">
+                      <div className="flex gap-2 items-center">
                         {device.cartaResponsiva ? (
                           <>
-                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                              <Download className="h-3.5 w-3.5" />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-9 w-9 p-0 hover:bg-green-100"
+                              onClick={() => handleDescargarResponsiva(device)}
+                              title="Descargar responsiva"
+                            >
+                              <Download className="h-4 w-4 text-green-600" />
                             </Button>
-                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                            <div className="flex items-center gap-1 bg-green-100 px-2 py-1 rounded-full">
+                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              <span className="text-xs font-semibold text-green-700">Firmada</span>
+                            </div>
                           </>
                         ) : (
                           <>
-                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                              <Upload className="h-3.5 w-3.5" />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-9 w-9 p-0 hover:bg-blue-100"
+                              onClick={() => handleSubirResponsivaFirmada(device)}
+                              title="Subir responsiva firmada"
+                            >
+                              <Upload className="h-4 w-4 text-blue-600" />
                             </Button>
-                            <XCircle className="h-5 w-5 text-red-500" />
+                            <div className="flex items-center gap-1 bg-red-100 px-2 py-1 rounded-full">
+                              <XCircle className="h-4 w-4 text-red-600" />
+                              <span className="text-xs font-semibold text-red-700">Pendiente</span>
+                            </div>
                           </>
                         )}
                       </div>
                     </td>
 
-                    <td className="py-3 px-4">
-                      <div className="flex gap-1">
+                    <td className="py-4 px-4">
+                      <div className="flex gap-2 items-center">
                         {device.bitlocker ? (
                           <>
-                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                              <Download className="h-3.5 w-3.5" />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-9 w-9 p-0 hover:bg-green-100"
+                            >
+                              <Download className="h-4 w-4 text-green-600" />
                             </Button>
-                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                            <div className="flex items-center gap-1 bg-green-100 px-2 py-1 rounded-full">
+                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+                            </div>
                           </>
                         ) : (
                           <>
-                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                              <Upload className="h-3.5 w-3.5" />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-9 w-9 p-0 hover:bg-blue-100"
+                            >
+                              <Upload className="h-4 w-4 text-blue-600" />
                             </Button>
-                            <XCircle className="h-5 w-5 text-red-500" />
+                            <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">
+                              <XCircle className="h-4 w-4 text-gray-500" />
+                            </div>
                           </>
                         )}
                       </div>
                     </td>
 
-                    <td className="py-3 px-4">
+                    <td className="py-4 px-4">
                       {device.firmado ? (
-                        <Badge variant="default" className="bg-green-500">
+                        <Badge
+                          variant="default"
+                          className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
+                        >
                           <FileCheck className="h-3 w-3 mr-1" />
                           {t('inventory.yes')}
                         </Badge>
                       ) : (
-                        <Button size="sm" variant="outline" className="h-7">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 border-indigo-300 text-indigo-600 hover:bg-indigo-50"
+                          onClick={() => handleSubirResponsivaFirmada(device)}
+                        >
                           {t('inventory.sign')}
                         </Button>
                       )}
                     </td>
 
-                    <td className="py-3 px-4">
+                    <td className="py-4 px-4">
                       <div className="flex gap-2 flex-wrap">
                         <Button
                           size="sm"
                           variant="outline"
+                          className="border-blue-300 text-blue-600 hover:bg-blue-50"
                           onClick={() => handleViewDetails(device)}
                         >
                           <Eye className="h-4 w-4 mr-1" />
@@ -382,17 +808,21 @@ export function InventoryNew() {
                         <Button
                           size="sm"
                           variant="outline"
+                          className="border-purple-300 text-purple-600 hover:bg-purple-50"
                           onClick={() => handleGenerateQR(device)}
                         >
-                          <QrCode className="h-4 w-4" />
+                          <QrCode className="h-4 w-4 mr-1" />
+                          QR
                         </Button>
 
                         <Button
                           size="sm"
                           variant="outline"
+                          className="border-green-300 text-green-600 hover:bg-green-50"
                           onClick={() => handleGenerarResponsiva(device)}
                         >
-                          Generar PDF
+                          <FileText className="h-4 w-4 mr-1" />
+                          PDF
                         </Button>
 
                         <Button
@@ -400,6 +830,7 @@ export function InventoryNew() {
                           variant="destructive"
                           disabled={!device.idEquipo || liberandoEquipoId === device.idEquipo}
                           onClick={() => handleLiberarEquipo(device)}
+                          className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
                         >
                           <Trash2 className="h-4 w-4 mr-1" />
                           {liberandoEquipoId === device.idEquipo ? 'Liberando...' : 'Liberar'}
@@ -413,23 +844,53 @@ export function InventoryNew() {
           </div>
 
           {filteredDevices.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              {t('inventory.noResults')}
+            <div className="text-center py-16">
+              <PackageOpen className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 text-lg font-medium">{t('inventory.noResults')}</p>
+              <p className="text-gray-400 text-sm mt-2">
+                Intenta ajustar los filtros de búsqueda
+              </p>
             </div>
           )}
         </CardContent>
       </Card>
 
+      {/* Modales */}
       <DeviceDetailsModal
         device={selectedDevice}
         open={isDetailsModalOpen}
         onOpenChange={setIsDetailsModalOpen}
+        onUploadResponsiva={handleSubirResponsivaFirmada}
+        onDownloadResponsiva={handleDescargarResponsiva}
       />
 
-      <QRModal
-        device={qrDevice}
-        open={isQRModalOpen}
-        onOpenChange={setIsQRModalOpen}
+      <QRModal device={qrDevice} open={isQRModalOpen} onOpenChange={setIsQRModalOpen} />
+
+      {/* Alertas y diálogos personalizados */}
+      <CustomAlert
+        open={alert.open}
+        onOpenChange={(open) => setAlert({ ...alert, open })}
+        title={alert.title}
+        description={alert.description}
+        type={alert.type}
+      />
+
+      <ConfirmDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog({ ...confirmDialog, open })}
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        onConfirm={confirmDialog.onConfirm}
+        variant={confirmDialog.variant}
+      />
+
+      <PromptDialog
+        open={promptDialog.open}
+        onOpenChange={(open) => setPromptDialog({ ...promptDialog, open })}
+        title={promptDialog.title}
+        description={promptDialog.description}
+        onConfirm={promptDialog.onConfirm}
+        placeholder={promptDialog.placeholder}
       />
     </div>
   );

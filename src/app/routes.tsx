@@ -7,6 +7,7 @@ import { Register } from './pages/Register';
 import { Login } from './pages/Login';
 import { Home } from './pages/Home';
 import {Agentes} from './pages/Agentes';
+import { InventoryABC } from './pages/InventoryABC';
 import { useAuth } from './context/AuthContext';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -60,6 +61,10 @@ export const router = createBrowserRouter(
         {
           path: 'inventory-old',
           Component: Inventory,
+        },
+        {
+        path: "inventory-abc",
+        Component: InventoryABC
         },
         {
           path: 'inventory-new',

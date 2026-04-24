@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation, useNavigate } from 'react-router';
-import { Monitor, Package, PlusCircle, Menu, Home, LogOut, PackageOpen, Cpu } from 'lucide-react';
+import { Monitor, Package, PlusCircle, Menu, Home, LogOut, PackageOpen, Cpu, Bolt } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { useAuth } from '../context/AuthContext';
@@ -14,9 +14,11 @@ export function Layout() {
     { name: 'Inicio', path: '/', icon: Home },
     { name: 'Dashboard', path: '/dashboard', icon: Monitor },
     { name: 'Inventario Viejo', path: '/inventory-old', icon: Package },
+    { name: 'Inventario ABC', path: '/inventory-abc', icon: Bolt },
     { name: 'Inventario Nuevo', path: '/inventory-new', icon: PackageOpen },
     { name: 'Agentes', path: '/agentes', icon: Cpu },
     { name: 'Registrar Equipo', path: '/register', icon: PlusCircle },
+
   ];
 
   const handleLogout = () => {
@@ -91,7 +93,7 @@ export function Layout() {
           {isSidebarOpen ? (
             <div className="text-xs text-blue-200">
               <p>© 2026 Sistema IT</p>
-              <p>Versión 1.0.3</p>
+              <p>Versión 2.1.5</p>
             </div>
           ) : (
             <div className="h-8" />

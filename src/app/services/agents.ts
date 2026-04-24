@@ -1,3 +1,9 @@
+export type EstadoRegistro =
+  | 'PENDIENTE'
+  | 'REGISTRADO'
+  | 'SIN_SERVICE_TAG'
+  | 'DESCONECTADO';
+
 export interface AgenteDetectado {
   monitoreo_id: number;
   hostname: string;
@@ -27,12 +33,23 @@ export interface AgenteDetectado {
   last_seen: string | null;
   registrado_en_inventario: number;
   equipo_id_registrado: number | null;
-  estado_registro: 'DISPONIBLE' | 'REGISTRADO' | 'SIN_SERVICE_TAG' | 'DESCONECTADO';
+  estado_registro: EstadoRegistro;
+}
+
+export interface AgentesAgrupadosResponse {
+  resumen: {
+    pendientes: number;
+    registrados: number;
+    incidencias: number;
+  };
+  pendientes: AgenteDetectado[];
+  registrados: AgenteDetectado[];
+  incidencias: AgenteDetectado[];
 }
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3006';
 
-export async function getAgentesDetectados(): Promise<AgenteDetectado[]> {
+export async function getAgentesDetectados(): Promise<AgentesAgrupadosResponse> {
   const response = await fetch(`${API_BASE}/agentes`);
 
   if (!response.ok) {

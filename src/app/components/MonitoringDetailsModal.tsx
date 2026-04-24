@@ -80,25 +80,38 @@ export function MonitoringDetailsModal({
 
   if (!device) return null;
 
-  const toText = (value: unknown) => {
-    if (value === null || value === undefined || value === '') return 'NULL';
-    return String(value);
+  const toText = (
+  value: unknown,
+  fallback='No disponible'
+  ) => {
+
+  if(
+    value===null ||
+    value===undefined ||
+    value==='' ||
+    value==='NULL' ||
+    value==='null'
+  ){
+    return fallback;
+  }
+
+  return String(value);
   };
 
   const toNumberText = (value: unknown, decimals = 2) => {
-    if (typeof value !== 'number' || Number.isNaN(value)) return 'NULL';
+    if (typeof value !== 'number' || Number.isNaN(value)) return '0.00';
     return value.toFixed(decimals);
   };
 
   const safeDate = (value: string | null | undefined) => {
-    if (!value) return 'NULL';
+    if (!value) return 'Sin fecha';
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return 'NULL';
     return date.toLocaleString('es-MX');
   };
 
   const formatUptime = (seconds: number | null | undefined) => {
-    if (typeof seconds !== 'number' || Number.isNaN(seconds)) return 'NULL';
+    if (typeof seconds !== 'number' || Number.isNaN(seconds)) return 'No disponible';
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);

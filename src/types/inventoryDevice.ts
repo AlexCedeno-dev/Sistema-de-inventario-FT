@@ -1,0 +1,35 @@
+export type InventoryDevice = {
+  id: string;
+  idEquipo: string | null;
+  idEmpleado: string | null;
+  status: string | null;
+  nombreEmpleado: string | null;
+  departamento: string | null;
+  planta: string | null;
+  tipo: string | null;
+  marca: string | null;
+  modelo: string | null;
+  hostname: string | null;
+  serviceTag: string | null;
+  firmado: boolean;
+  bitlocker: string | null;
+  cartaResponsiva: string | null;
+  rutaCartaResponsiva?: string | null;
+  finGarantia: string | null;
+
+  usuarioWindows?: string | null;
+  passwordWindows?: string | null;
+  usuarioAdmin?: string | null;
+  passwordAdmin?: string | null;
+  usuarioEnrollado?: string | null;
+  passwordEnrollado?: string | null;
+  licenciaOffice?: string | null;
+  usuarioExmail?: string | null;
+  passwordExmail?: string | null;
+  usuarioNAS?: string | null;
+  passwordNAS?: string | null;
+  usuarioVPN?: string | null;
+  passwordVPN?: string | null;
+  usuarioOsticket?: string | null;
+  passwordOsticket?: string | null;
+};
