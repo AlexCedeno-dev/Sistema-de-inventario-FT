@@ -93,7 +93,7 @@ export function Layout() {
           {isSidebarOpen ? (
             <div className="text-xs text-blue-200">
               <p>© 2026 Sistema IT</p>
-              <p>Versión 2.1.5</p>
+              <p>Versión 2.2.5</p>
             </div>
           ) : (
             <div className="h-8" />

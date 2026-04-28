@@ -66,6 +66,9 @@ export function Register() {
   const equipoId = new URLSearchParams(location.search).get('equipoId');
   const isEditMode = !!equipoId;
 
+  const isAgentRegisterMode = !!monitoreoId;
+  const canUseRegister = isAgentRegisterMode || isEditMode;
+
   
     //LOCAL y server 
   const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3006';
@@ -299,7 +302,23 @@ export function Register() {
     setActiveTab('empleado');
   };
 
+    if (!canUseRegister) {
+    return (
+      <div className="p-8 space-y-4">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          No se puede registrar un equipo manualmente desde esta pantalla.
+          Para registrar un equipo nuevo, ve a la página de Agentes y selecciona un agente disponible.
+        </div>
+
+        <Button type="button" onClick={() => navigate('/agentes')}>
+          Ir a Agentes
+        </Button>
+      </div>
+    );
+  }
+
   return (
+    
     <div className="p-8 space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">{isEditMode
