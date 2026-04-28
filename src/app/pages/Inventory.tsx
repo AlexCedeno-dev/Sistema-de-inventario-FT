@@ -40,6 +40,7 @@ type InventoryDevice = {
   serviceTag: string | null;
   firmado: boolean;
   bitlocker: string | null;
+  biosPassword: string | null;
   cartaResponsiva: string | null;
   finGarantia: string | null;
 };

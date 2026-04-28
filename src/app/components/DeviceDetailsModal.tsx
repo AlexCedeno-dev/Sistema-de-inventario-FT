@@ -3,9 +3,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Download, Upload, FileCheck, Eye, EyeOff } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
+
+
 
 export type InventoryDeviceModal = {
+      biosPassword: any;
       id: string;
       idEquipo: string | null;
       idEmpleado: string | null;
@@ -31,8 +35,6 @@ export type InventoryDeviceModal = {
       usuarioEnrollado?: string;
       passwordEnrollado?: string;
       licenciaOffice?: string;
-      usuarioExmail?: string;
-      passwordExmail?: string;
       usuarioNAS?: string;
       passwordNAS?: string;
       usuarioVPN?: string;
@@ -47,16 +49,38 @@ interface DeviceDetailsModalProps {
   onOpenChange: (open: boolean) => void;
   onUploadResponsiva?: (device: InventoryDeviceModal) => void;
   onDownloadResponsiva?: (device: InventoryDeviceModal) => void;
+  
 }
 
-export function DeviceDetailsModal({
-  device,
-  open,
-  onOpenChange,
-  onUploadResponsiva,
-  onDownloadResponsiva,
+export function DeviceDetailsModal({device, open, onOpenChange, onUploadResponsiva, onDownloadResponsiva,
 }: DeviceDetailsModalProps) {
   const [showPasswords, setShowPasswords] = useState(false);
+  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3006';
+  const [detalle, setDetalle] = useState<any>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+      if (!open || !device?.idEquipo) return;
+
+      const cargarDetalle = async () => {
+        try {
+          const res = await fetch(`${API_BASE}/equipos/${device.idEquipo}/detalle`);
+          const data = await res.json();
+
+          if (!res.ok) {
+            throw new Error(data.error || 'Error al cargar detalle');
+          }
+
+          setDetalle(data);
+        } catch (error) {
+          console.error('Error detalle equipo:', error);
+          setDetalle(null);
+        }
+      };
+
+      cargarDetalle();
+    }, [open, device?.idEquipo]);
+
 
   if (!device) return null;
 
@@ -71,6 +95,13 @@ export function DeviceDetailsModal({
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>Detalles del Equipo - {device.id}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(`/register?equipoId=${device.idEquipo}`)}
+            >
+              Editar Datos
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -158,23 +189,32 @@ export function DeviceDetailsModal({
           <TabsContent value="windows" className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-500">Contraseña BIOS</p>
+                <p className="font-semibold">{maskPassword(detalle?.bios_password ?? device.biosPassword)}</p>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-500">Licencia Office</p>
+                <p className="font-semibold">{maskPassword(detalle?.licencia_office ?? device.licenciaOffice)}</p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-500">Usuario Windows</p>
-                <p className="font-semibold">{device.usuarioWindows ?? 'N/A'}</p>
+                <p className="font-semibold">{detalle?.local_user_windows ?? device.usuarioWindows ?? 'N/A'}</p>
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-500">Password Windows</p>
-                <p className="font-semibold">{maskPassword(device.passwordWindows)}</p>
+                <p className="font-semibold">{maskPassword(detalle?.password_windows ?? device.passwordWindows)}</p>
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-500">Usuario Admin</p>
-                <p className="font-semibold">{device.usuarioAdmin ?? 'N/A'}</p>
+                <p className="font-semibold">{detalle?.usuario_admin ?? device.usuarioAdmin ?? 'N/A'}</p>
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-500">Password Admin</p>
-                <p className="font-semibold">{maskPassword(device.passwordAdmin)}</p>
+                <p className="font-semibold">{maskPassword(detalle?.password_admin ?? device.passwordAdmin)}</p>
               </div>
             </div>
           </TabsContent>
@@ -182,39 +222,30 @@ export function DeviceDetailsModal({
           <TabsContent value="accesos" className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-500">Usuario Exmail</p>
-                <p className="font-semibold">{device.usuarioExmail ?? 'N/A'}</p>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-500">Password Exmail</p>
-                <p className="font-semibold">{maskPassword(device.passwordExmail)}</p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-500">Usuario NAS</p>
-                <p className="font-semibold">{device.usuarioNAS ?? 'N/A'}</p>
+                <p className="font-semibold">{detalle?.usuario_nas ?? device.usuarioNAS ?? 'N/A'}</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-500">Password NAS</p>
-                <p className="font-semibold">{maskPassword(device.passwordNAS)}</p>
+                <p className="font-semibold">{maskPassword(detalle?.password_nas ?? device.passwordNAS)}</p>
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-500">Usuario VPN</p>
-                <p className="font-semibold">{device.usuarioVPN ?? 'N/A'}</p>
+                <p className="font-semibold">{detalle?.usuario_vpn ?? device.usuarioVPN ?? 'N/A'}</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-500">Password VPN</p>
-                <p className="font-semibold">{maskPassword(device.passwordVPN)}</p>
+                <p className="font-semibold">{maskPassword(detalle?.password_vpn ?? device.passwordVPN)}</p>
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-500">Usuario OSTicket</p>
-                <p className="font-semibold">{device.usuarioOsticket ?? 'N/A'}</p>
+                <p className="font-semibold">{detalle?.usuario_osticket ?? device.usuarioOsticket ?? 'N/A'}</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-500">Password OSTicket</p>
-                <p className="font-semibold">{maskPassword(device.passwordOsticket)}</p>
+                <p className="font-semibold">{maskPassword(detalle?.password_osticket ?? device.passwordOsticket)}</p>
               </div>
             </div>
           </TabsContent>

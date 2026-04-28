@@ -1058,61 +1058,55 @@ const handleGuardarFirmaDigital = async (firmas: {
         />
 
         {qrOpen && (
-<div className="
-fixed inset-0
-bg-black/50
-flex items-center
-justify-center
-z-50
-">
+        <div className=" fixed inset-0 bg-black/50 flex items-centerjustify-center z-50">
 
-<div className="
-bg-white
-p-6
-rounded-xl
-shadow-xl
-text-center
-max-w-sm
-">
+        <div className="
+        bg-white
+        p-6
+        rounded-xl
+        shadow-xl
+        text-center
+        max-w-sm
+        ">
 
-<h3 className="
-font-bold mb-4
-">
-Escanea para firmar
-</h3>
+        <h3 className="
+        font-bold mb-4
+        ">
+        Escanea para firmar
+        </h3>
 
-<div className="
-bg-white
-p-4
-inline-block
-">
-<QRCode
- value={firmaLink}
- size={220}
-/>
-</div>
+        <div className="
+        bg-white
+        p-4
+        inline-block
+        ">
+        <QRCode
+        value={firmaLink}
+        size={220}
+        />
+        </div>
 
-<p className="
-text-xs mt-4 break-all
-">
-{firmaLink}
-</p>
+        <p className="
+        text-xs mt-4 break-all
+        ">
+        {firmaLink}
+        </p>
 
-<button
-onClick={()=>setQrOpen(false)}
-className="
-mt-5
-px-4 py-2
-bg-blue-700
-text-white rounded
-"
->
-Cerrar
-</button>
+        <button
+        onClick={()=>setQrOpen(false)}
+        className="
+        mt-5
+        px-4 py-2
+        bg-blue-700
+        text-white rounded
+        "
+        >
+        Cerrar
+        </button>
 
-</div>
-</div>
-)}
-    </div>
-  );
-}
+        </div>
+        </div>
+        )}
+            </div>
+          );
+        }

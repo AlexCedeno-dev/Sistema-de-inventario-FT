@@ -8,8 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Textarea } from '../components/ui/textarea';
 import { toast } from 'sonner';
-import { Save } from 'lucide-react';
-import { getRegisterDataFromAgent } from '../services/register';
+import { Save, Eye, EyeOff } from 'lucide-react';
+import { getRegisterDataFromAgent, getEquipoDetalle } from '../services/register';
+
 
 
 export function Register() {
@@ -50,8 +51,6 @@ export function Register() {
   const [licenciaOffice, setLicenciaOffice] = useState('');
 
   // Accesos
-  const [correoExmail, setCorreoExmail] = useState('');
-  const [passwordExmail, setPasswordExmail] = useState('');
   const [usuarioNAS, setUsuarioNAS] = useState('');
   const [passwordNAS, setPasswordNAS] = useState('');
   const [usuarioVPN, setUsuarioVPN] = useState('');
@@ -59,7 +58,15 @@ export function Register() {
   const [usuarioOsticket, setUsuarioOsticket] = useState('');
   const [passwordOsticket, setPasswordOsticket] = useState('');
 
+  //OTROS
+  const [showPasswords, setShowPasswords] = useState(false);
+
+  //EDITAR CAMPOS
   const monitoreoId = new URLSearchParams(location.search).get('monitoreoId');
+  const equipoId = new URLSearchParams(location.search).get('equipoId');
+  const isEditMode = !!equipoId;
+
+  
     //LOCAL y server 
   const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3006';
 
@@ -120,50 +127,132 @@ export function Register() {
     loadAgentData();
   }, [monitoreoId]);
 
-   const handleSubmit = async () => {
-  try {
-    if (!nombreEmpleado || !departamento || !planta) {
-      toast.error('Completa datos del empleado');
-      return;
-    }
+  useEffect(() => {
+  const loadEquipoDetalle = async () => {
+    if (!equipoId) return;
 
-    if (!tipo || !marca || !modelo || !serviceTag) {
-      toast.error('Completa datos del equipo');
-      return;
+    try {
+      setLoadingAgentData(true);
+
+      const data = await getEquipoDetalle(Number(equipoId));
+
+      setNombreEmpleado(data.nombre_completo || '');
+      setDepartamento(data.departamento || '');
+      setPlanta(data.planta || '');
+
+      setTipo(data.tipo || '');
+      setMarca(data.marca || '');
+      setModelo(data.modelo || '');
+      setServiceTag(data.service_tag || '');
+      setNombreEquipo(data.nombre_equipo || '');
+      setEspecificaciones(data.specs || '');
+
+      setFechaCompra(data.fecha_compra || '');
+      setFechaAsignacion(data.fecha_asig || '');
+      setInicioGarantia(data.start_warranty || '');
+      setFinGarantia(data.end_warranty || '');
+
+      setUsuarioWindows(data.local_user_windows || '');
+      setPasswordWindows(data.password_windows || '');
+      setUsuarioAdmin(data.usuario_admin || '');
+      setPasswordAdmin(data.password_admin || '');
+
+      setBiosPassword(data.bios_password || '');
+      setLicenciaOffice(data.licencia_office || '');
+      setCorreoEnrollado(data.correo_enrrolado || '');
+      setPasswordEnrollado(data.password_enrrolado || '');
+
+      setUsuarioNAS(data.usuario_nas || '');
+      setPasswordNAS(data.password_nas || '');
+      setUsuarioVPN(data.usuario_vpn || '');
+      setPasswordVPN(data.password_vpn || '');
+      setUsuarioOsticket(data.usuario_osticket || '');
+      setPasswordOsticket(data.password_osticket || '');
+
+      toast.success('Datos del equipo cargados para edición');
+    } catch (error) {
+      console.error('Error cargando detalle del equipo:', error);
+      toast.error('No se pudieron cargar los datos del equipo');
+    } finally {
+      setLoadingAgentData(false);
     }
+  };
+
+  loadEquipoDetalle();
+}, [equipoId]);
+
+   const handleSubmit = async () => {
+      try {
+        if (!nombreEmpleado.trim() || !departamento || !planta) {
+          toast.error('Completa datos del empleado');
+          setActiveTab('empleado');
+          return;
+        }
+
+        if (!tipo || !marca || !modelo.trim() || !serviceTag.trim() || !nombreEquipo.trim() || !fechaAsignacion) {
+          toast.error('Completa datos obligatorios del equipo');
+          setActiveTab('equipo');
+          return;
+        }
 
     const payload = {
-      monitoreo_id: monitoreoId ? Number(monitoreoId) : null,
-      empleado: {
-        nombre_completo: nombreEmpleado,
-        departamento,
-        planta
-      },
-      equipo: {
-        tipo,
-        marca,
-        modelo,
-        service_tag: serviceTag,
-        nombre_equipo: nombreEquipo || null,
-        specs: especificaciones || null,
-        fecha_compra: fechaCompra || null,
-        fecha_asig: fechaAsignacion || null,
-        start_warranty: inicioGarantia || null,
-        end_warranty: finGarantia || null
-      },
-      windows: {
-        usuarioWindows: usuarioWindows || null,
-        passwordWindows: passwordWindows || null,
-        usuarioAdmin: usuarioAdmin || null,
-        passwordAdmin: passwordAdmin || null
-      }
+        monitoreo_id: monitoreoId ? Number(monitoreoId) : null,
+
+        empleado: {
+          nombre_completo: nombreEmpleado.trim(),
+          departamento,
+          planta
+        },
+
+        equipo: {
+          tipo,
+          marca,
+          modelo: modelo.trim(),
+          service_tag: serviceTag.trim(),
+          nombre_equipo: nombreEquipo.trim() || null,
+          specs: especificaciones.trim() || null,
+          fecha_compra: fechaCompra || null,
+          fecha_asig: fechaAsignacion || null,
+          start_warranty: inicioGarantia || null,
+          end_warranty: finGarantia || null,
+          estado_renovacion: estadoRenovacion || null,
+          bios_password: biosPassword.trim() || null,
+          licencia_office: licenciaOffice.trim() || null
+        },
+
+        windows: {
+          usuarioWindows: usuarioWindows.trim() || null,
+          passwordWindows: passwordWindows.trim() || null,
+          usuarioAdmin: usuarioAdmin.trim() || null,
+          passwordAdmin: passwordAdmin.trim() || null,
+          correoEnrollado: correoEnrollado.trim() || null,
+          passwordEnrollado: passwordEnrollado.trim() || null
+        },
+
+        accesos: {
+          // quitamos Exmail si ya no lo quieres usar
+          usuarioNAS: usuarioNAS.trim() || null,
+          passwordNAS: passwordNAS.trim() || null,
+          usuarioVPN: usuarioVPN.trim() || null,
+          passwordVPN: passwordVPN.trim() || null,
+          usuarioOsticket: usuarioOsticket.trim() || null,
+          passwordOsticket: passwordOsticket.trim() || null
+        }
     };
 
-    const res = await fetch(`${API_BASE}/registrar-equipo`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+      const url = isEditMode
+          ? `${API_BASE}/equipos/${equipoId}`
+          : `${API_BASE}/registrar-equipo`;
+
+      const method = isEditMode ? 'PUT' : 'POST';
+
+      const res = await fetch(url,{
+        method,
+        headers:{
+          'Content-Type':'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
 
     const data = await res.json();
 
@@ -201,8 +290,6 @@ export function Register() {
     setCorreoEnrollado('');
     setPasswordEnrollado('');
     setLicenciaOffice('');
-    setCorreoExmail('');
-    setPasswordExmail('');
     setUsuarioNAS('');
     setPasswordNAS('');
     setUsuarioVPN('');
@@ -215,7 +302,9 @@ export function Register() {
   return (
     <div className="p-8 space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Registrar Equipo de Cómputo</h1>
+        <h1 className="text-3xl font-bold text-gray-900">{isEditMode
+                ? 'Editar Equipo de Cómputo'
+                : 'Registrar Equipo de Cómputo'}</h1>
         <p className="text-gray-500 mt-1">
         {monitoreoId
           ? 'Se seleccionó un agente detectado. Completa la información para registrar el equipo.'
@@ -229,6 +318,12 @@ export function Register() {
         </div>
       )}
 
+      {isEditMode && (
+        <div className="rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+          Estás editando un equipo existente. Modifica solo lo necesario y guarda cambios.
+        </div>
+      )}
+      
       <Card>
         <CardHeader>
           <CardTitle>Información del Equipo</CardTitle>
@@ -432,7 +527,6 @@ export function Register() {
                       <SelectItem value="Vigente">Vigente</SelectItem>
                       <SelectItem value="Por Vencer">Por Vencer</SelectItem>
                       <SelectItem value="Vencida">Vencida</SelectItem>
-                      <SelectItem value="Renovada">Renovada</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -445,7 +539,7 @@ export function Register() {
                   <Label htmlFor="biosPassword">BIOS Password</Label>
                   <Input
                     id="biosPassword"
-                    type="password"
+                    type={showPasswords ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={biosPassword}
                     onChange={(e) => setBiosPassword(e.target.value)}
@@ -476,7 +570,7 @@ export function Register() {
                   <Label htmlFor="passwordWindows">Contraseña Windows</Label>
                   <Input
                     id="passwordWindows"
-                    type="password"
+                    type={showPasswords ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={passwordWindows}
                     onChange={(e) => setPasswordWindows(e.target.value)}
@@ -497,7 +591,7 @@ export function Register() {
                   <Label htmlFor="passwordAdmin">Contraseña Admin</Label>
                   <Input
                     id="passwordAdmin"
-                    type="password"
+                    type={showPasswords ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={passwordAdmin}
                     onChange={(e) => setPasswordAdmin(e.target.value)}
@@ -519,7 +613,7 @@ export function Register() {
                   <Label htmlFor="passwordEnrollado">Contraseña Enrollado</Label>
                   <Input
                     id="passwordEnrollado"
-                    type="password"
+                    type={showPasswords ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={passwordEnrollado}
                     onChange={(e) => setPasswordEnrollado(e.target.value)}
@@ -530,28 +624,6 @@ export function Register() {
 
             <TabsContent value="accesos" className="space-y-4 mt-6">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="correoExmail">Correo Exmail</Label>
-                  <Input
-                    id="correoExmail"
-                    type="email"
-                    placeholder="usuario@exmail.empresa.com"
-                    value={correoExmail}
-                    onChange={(e) => setCorreoExmail(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="passwordExmail">Contraseña Exmail</Label>
-                  <Input
-                    id="passwordExmail"
-                    type="password"
-                    placeholder="••••••••"
-                    value={passwordExmail}
-                    onChange={(e) => setPasswordExmail(e.target.value)}
-                  />
-                </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="usuarioNAS">Usuario NAS</Label>
                   <Input
@@ -566,7 +638,7 @@ export function Register() {
                   <Label htmlFor="passwordNAS">Contraseña NAS</Label>
                   <Input
                     id="passwordNAS"
-                    type="password"
+                    type={showPasswords ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={passwordNAS}
                     onChange={(e) => setPasswordNAS(e.target.value)}
@@ -587,7 +659,7 @@ export function Register() {
                   <Label htmlFor="passwordVPN">Contraseña VPN</Label>
                   <Input
                     id="passwordVPN"
-                    type="password"
+                    type={showPasswords ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={passwordVPN}
                     onChange={(e) => setPasswordVPN(e.target.value)}
@@ -608,7 +680,7 @@ export function Register() {
                   <Label htmlFor="passwordOsticket">Contraseña OSTicket</Label>
                   <Input
                     id="passwordOsticket"
-                    type="password"
+                    type={showPasswords ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={passwordOsticket}
                     onChange={(e) => setPasswordOsticket(e.target.value)}
@@ -621,12 +693,25 @@ export function Register() {
           <div className="flex gap-4 mt-6 pt-6 border-t">
             <Button type="button" onClick={handleSubmit} className="flex-1">
               <Save className="h-4 w-4 mr-2" />
-              Guardar Equipo
+              {isEditMode ? 'Actualizar Equipo' : 'Guardar Equipo'}
             </Button>
 
             <Button type="button" variant="outline" onClick={resetForm}>
               Limpiar Formulario
             </Button>
+
+                  <div className="flex justify-end">
+                  <Button type="button" variant="outline" size="sm"
+                    onClick={() => setShowPasswords(!showPasswords)}
+                  >
+                    {showPasswords ? (
+                      <EyeOff className="h-4 w-4 mr-2" />
+                    ) : (
+                      <Eye className="h-4 w-4 mr-2" />
+                    )}
+                    {showPasswords ? 'Ocultar contraseñas' : 'Mostrar contraseñas'}
+                  </Button>
+                </div>
           </div>
         </CardContent>
       </Card>
