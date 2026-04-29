@@ -38,6 +38,20 @@ export function Agentes() {
     incidencias: [],
   });
 
+  
+    const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3006";
+
+    const descargarPaqueteAgente = () => {
+      const url = `${API_BASE}/api/nodeguard/agent-pack`;
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "NodeGuardAgentSERVER_Pack.zip";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
   const [activeTab, setActiveTab] = useState<TabKey>('pendientes');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -169,6 +183,13 @@ export function Agentes() {
             registrados e incidencias.
           </p>
         </div>
+
+        <button
+          onClick={descargarPaqueteAgente}
+          className="px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+        >
+          Descargar agente
+        </button>
 
         <button
           onClick={() => cargarAgentes(false)}
