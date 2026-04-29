@@ -3,6 +3,7 @@ import { Monitor, Package, PlusCircle, Menu, Home, LogOut, PackageOpen, Cpu, Bol
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { useAuth } from '../context/AuthContext';
+import { ClipboardList } from 'lucide-react';
 
 export function Layout() {
   const location = useLocation();
@@ -12,13 +13,13 @@ export function Layout() {
 
   const navigation = [
     { name: 'Inicio', path: '/', icon: Home },
-    { name: 'Dashboard', path: '/dashboard', icon: Monitor },
-    { name: 'Inventario Viejo', path: '/inventory-old', icon: Package },
-    { name: 'Inventario ABC', path: '/inventory-abc', icon: Bolt },
     { name: 'Inventario Nuevo', path: '/inventory-new', icon: PackageOpen },
+    { name: 'Dashboard', path: '/dashboard', icon: Monitor },
+    { name: 'Inventario ABC', path: '/inventory-abc', icon: Bolt },
+    { name: 'Historial de Entregas', path: '/historial-entregas', icon: ClipboardList },
+    { name: 'Inventario Viejo', path: '/inventory-old', icon: Package },
     { name: 'Agentes', path: '/agentes', icon: Cpu },
     { name: 'Registrar Equipo', path: '/register', icon: PlusCircle },
-
   ];
 
   const handleLogout = () => {

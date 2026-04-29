@@ -10,6 +10,7 @@ import {Agentes} from './pages/Agentes';
 import { InventoryABC } from './pages/InventoryABC';
 import { useAuth } from './context/AuthContext';
 import { FirmaEquipo } from './pages/FirmaEquipo';
+import { HistorialEntregas } from './pages/HistorialEntregas';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -83,6 +84,10 @@ export const router = createBrowserRouter(
           path: 'register',
           Component: Register,
         },
+        {
+          path: 'historial-entregas',
+          Component: HistorialEntregas,
+        }
       ],
     },
   ],

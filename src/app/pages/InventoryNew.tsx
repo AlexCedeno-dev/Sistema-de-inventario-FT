@@ -7,6 +7,7 @@ import { DeviceDetailsModal, type InventoryDeviceModal } from '../components/Dev
 import { SignatureModal } from '../components/SignatureModal';
 import { QRModal } from '../components/QRModal';
 import QRCode from 'react-qr-code';
+import { EntregaDialog } from '../components/modalsofinvenory/EntregaDialog';
 import {
   Search,
   Download,
@@ -25,6 +26,8 @@ import {
   AlertTriangle,
   CheckCircle,
   Info,
+  Link,
+  ClipboardList,
 } from 'lucide-react';
 import {
   Select,
@@ -44,6 +47,7 @@ import {
   AlertDialogAction,
 } from '../components/ui/alert-dialog';
 import { useLanguage } from '../context/LanguageContext';
+
 
 type InventoryDevice = InventoryDeviceModal;
 
@@ -169,6 +173,7 @@ interface PromptDialogProps {
   cancelText?: string;
 }
 
+
 function PromptDialog({
   open,
   onOpenChange,
@@ -219,6 +224,8 @@ function PromptDialog({
   );
 }
 
+
+
 // ============ COMPONENTE PRINCIPAL ============
 
 export function InventoryNew() {
@@ -238,6 +245,13 @@ export function InventoryNew() {
 
   const [firmaLink,setFirmaLink]=useState('');
   const [qrOpen,setQrOpen]=useState(false); 
+  const [entregaDialog, setEntregaDialog] = useState<{
+  open: boolean;
+  device: InventoryDevice | null;
+    }>({
+      open: false,
+      device: null,
+    });
 
   // Estados para alertas y diálogos
   const [alert, setAlert] = useState<{
@@ -415,6 +429,7 @@ export function InventoryNew() {
     });
   };
 
+  // LEGACY: flujo anterior, pendiente de eliminar cuando terminemos nuevo flujo
   const handleGenerarResponsiva = (device: InventoryDevice) => {
     if (!device.idEquipo) {
       showAlert('Error', 'Este equipo no tiene ID válido para generar PDF.', 'error');
@@ -528,12 +543,13 @@ const handleDescargarBitlocker = (
       '_blank'
     );
 };
-
+// LEGACY: flujo anterior, pendiente de eliminar cuando terminemos nuevo flujo
 const handleAbrirFirma = (device: InventoryDevice) => {
   setDeviceToSign(device);
   setIsSignatureOpen(true);
 };
 
+// LEGACY: flujo anterior, pendiente de eliminar cuando terminemos nuevo flujo
 const handleGuardarFirmaDigital = async (firmas: {
   firmaITBase64: string;
   firmaReceptorBase64: string;
@@ -578,63 +594,116 @@ const handleGuardarFirmaDigital = async (firmas: {
   });
 };
 
-  const handleGenerarFirmaMovil = (device:any) => {
+      // LEGACY: flujo anterior, pendiente de eliminar cuando terminemos nuevo flujo
+      const handleGenerarFirmaMovil = (device:any) => {
 
-  setPromptDialog({
-    open:true,
-    title:'Firma por teléfono',
-    description:
-  'Nombre de quien entrega el equipo:',
-    placeholder:'Ej. Alejandro',
+      setPromptDialog({ open:true,
+        title:'Firma por teléfono',
+        description:
+      'Nombre de quien entrega el equipo:',
+        placeholder:'Ej. Alejandro',
 
-    onConfirm: async (entregadoPor)=>{
+        onConfirm: async (entregadoPor)=>{
 
-    try{
+        try{
 
-      const res=
-      await fetch(
-  `${API_BASE}/equipos/${device.idEquipo}/generar-link-firma`,
-  {
-  method:'POST',
-  headers:{
-    'Content-Type':
-    'application/json'
-  },
-  body:JSON.stringify({
-    entregadoPor
-  })
-  }
-  );
+          const res=
+          await fetch(
+      `${API_BASE}/equipos/${device.idEquipo}/generar-link-firma`,
+      {
+      method:'POST',
+      headers:{
+        'Content-Type':
+        'application/json'
+      },
+      body:JSON.stringify({
+        entregadoPor
+      })
+      }
+      );
 
-  const json=
-  await res.json();
+      const json=
+      await res.json();
 
-  if(!res.ok){
-    throw new Error(
-      json.error
-    );
-  }
+      if(!res.ok){
+        throw new Error(
+          json.error
+        );
+      }
 
-  setFirmaLink(
-    json.url
-  );
+      setFirmaLink(
+        json.url
+      );
 
-  setQrOpen(true);
+      setQrOpen(true);
 
-    }catch(error:any){
+        }catch(error:any){
 
-  showAlert(
-  'Error',
-  error.message,
-  'error'
-  );
+      showAlert(
+      'Error',
+      error.message,
+      'error'
+      );
 
+        }
+
+        }
+      });
+
+      };
+
+
+const handleConfirmarEntrega = async ({
+    entregadoPor,
+    tipoEntregador,
+  }: {
+    entregadoPor: string;
+    tipoEntregador: 'IT' | 'BECARIO';
+  }) => {
+    const device = entregaDialog.device;
+
+    if (!device?.idEquipo) {
+      showAlert('Error', 'Este equipo no tiene ID válido.', 'error');
+      return;
     }
 
-    }
-  });
+    try {
+      const res = await fetch(
+        `${API_BASE}/equipos/${device.idEquipo}/generar-link-firma`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            entregadoPor,
+            tipoEntregador,
+          }),
+        }
+      );
 
-  };
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json.error || 'No se pudo generar el documento');
+      }
+
+      setFirmaLink(json.url);
+      setQrOpen(true);
+
+      showAlert(
+        'Documento generado',
+        'Escanea el QR para que el usuario firme la responsiva.',
+        'success'
+      );
+    } catch (error: any) {
+      showAlert(
+        'Error',
+        error.message || 'Error al generar documento',
+        'error'
+      );
+    }
+};
 
   return (
     <div className="p-8 space-y-6">
@@ -688,7 +757,7 @@ const handleGuardarFirmaDigital = async (firmas: {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-600">
-              {devices.filter((d) => d.status === 'ACTIVO' || d.status === 'Activo').length}
+              {devices.filter((d) => d.status === 'ACTIVO').length}
             </div>
             <p className="text-xs text-gray-500 mt-1">En uso actualmente</p>
           </CardContent>
@@ -750,10 +819,17 @@ const handleGuardarFirmaDigital = async (firmas: {
           <SelectContent>
             <SelectItem value="all">{t('inventory.allStatus')}</SelectItem>
             <SelectItem value="ACTIVO">ACTIVO</SelectItem>
-            <SelectItem value="Activo">Activo</SelectItem>
             <SelectItem value="Inactivo">Inactivo</SelectItem>
           </SelectContent>
         </Select>
+
+        <Link
+          to="/historial-entregas"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-gray-100"
+        >
+          <ClipboardList className="h-4 w-4" />
+          Historial entregas
+        </Link>
       </div>
 
       {/* Tabla mejorada - Parte 1 */}
@@ -877,21 +953,10 @@ const handleGuardarFirmaDigital = async (firmas: {
                             </div>
                           </>
                         ) : (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-9 w-9 p-0 hover:bg-blue-100"
-                              onClick={() => handleSubirResponsivaFirmada(device)}
-                              title="Subir responsiva firmada"
-                            >
-                              <Upload className="h-4 w-4 text-blue-600" />
-                            </Button>
                             <div className="flex items-center gap-1 bg-red-100 px-2 py-1 rounded-full">
                               <XCircle className="h-4 w-4 text-red-600" />
                               <span className="text-xs font-semibold text-red-700">Pendiente</span>
                             </div>
-                          </>
                         )}
                       </div>
                     </td>
@@ -931,24 +996,19 @@ const handleGuardarFirmaDigital = async (firmas: {
                     </td>
 
                     <td className="py-4 px-4">
-                      {device.firmado ? (
-                        <Badge
-                          variant="default"
-                          className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
-                        >
-                          <FileCheck className="h-3 w-3 mr-1" />
-                          {t('inventory.yes')}
-                        </Badge>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 border-indigo-300 text-indigo-600 hover:bg-indigo-50"
-                          onClick={() => handleGenerarFirmaMovil(device)}
-                        >
-                          {t('inventory.sign')}
-                        </Button>
-                      )}
+                        {device.firmado ? (
+                          <Badge
+                            variant="default"
+                            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
+                          >
+                            <FileCheck className="h-3 w-3 mr-1" />
+                            Firmado
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">
+                            Pendiente
+                          </Badge>
+                        )}
                     </td>
 
                     <td className="py-4 px-4">
@@ -973,16 +1033,18 @@ const handleGuardarFirmaDigital = async (firmas: {
                           QR
                         </Button>
 
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-green-300 text-green-600 hover:bg-green-50"
-                          onClick={() => handleGenerarResponsiva(device)}
-                        >
-                          <FileText className="h-4 w-4 mr-1" />
-                          PDF
-                        </Button>
-
+                          {!device.firmado && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-green-300 text-green-600 hover:bg-green-50"
+                              onClick={() => setEntregaDialog({ open: true, device })}
+                            >
+                              <FileText className="h-4 w-4 mr-1" />
+                              Generar documento
+                            </Button>
+                          )}
+                          
                         <Button
                           size="sm"
                           variant="destructive"
@@ -1050,6 +1112,17 @@ const handleGuardarFirmaDigital = async (firmas: {
         onConfirm={promptDialog.onConfirm}
         placeholder={promptDialog.placeholder}
       />
+
+      <EntregaDialog
+          open={entregaDialog.open}
+          onOpenChange={(open) =>
+            setEntregaDialog((prev) => ({
+              open,
+              device: open ? prev.device : null,
+            }))
+          }
+          onConfirm={handleConfirmarEntrega}
+        />
 
       <SignatureModal
           open={isSignatureOpen}
