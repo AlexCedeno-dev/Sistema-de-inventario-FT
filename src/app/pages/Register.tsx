@@ -428,8 +428,8 @@ export function Register() {
                     <SelectContent>
                       <SelectItem value="Laptop">Laptop</SelectItem>
                       <SelectItem value="Desktop">Desktop</SelectItem>
-                      <SelectItem value="Workstation">Workstation</SelectItem>
-                      <SelectItem value="All-in-One">All-in-One</SelectItem>
+                      <SelectItem value="Workstation">OLS</SelectItem>
+                      <SelectItem value="All-in-One">Servidor</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

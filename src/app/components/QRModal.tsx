@@ -1,12 +1,29 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
-import { InventoryDevice } from '../data/mockData.ts';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from './ui/button';
 import { Download } from 'lucide-react';
 import { Badge } from './ui/badge';
 
+export type InventoryDeviceQR = {
+  id: string;
+  idEquipo: string | null;
+  qrToken?: string | null;
+  qr_token?: string | null;
+
+  serviceTag: string | null;
+  nombreEmpleado: string | null;
+  departamento: string | null;
+  tipo: string | null;
+  marca: string | null;
+  modelo: string | null;
+  status: string | null;
+  fechaAsig?: string | null;
+  fecha_asig?: string | null;
+  permisoSalidaPlanta?: boolean | number | null;
+};
+
 interface QRModalProps {
-  device: InventoryDevice | null;
+  device: InventoryDeviceQR | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -14,86 +31,121 @@ interface QRModalProps {
 export function QRModal({ device, open, onOpenChange }: QRModalProps) {
   if (!device) return null;
 
-  const qrData = JSON.stringify({
-    id: device.id,
-    empleado: device.nombreEmpleado,
-    equipo: device.nombreEquipo,
-    serviceTag: device.serviceTag,
-    marca: device.marca,
-    modelo: device.modelo,
-    permisoSalida: device.permisoSalidaPlanta,
-    departamento: device.departamento,
-    planta: device.planta,
-    fecha: new Date().toISOString(),
-  });
+  const qrToken = device.qrToken ?? device.qr_token;
+
+  const basePath = import.meta.env.BASE_URL || '/';
+
+  const qrUrl = qrToken
+    ? `${window.location.origin}${basePath}validar-equipo/${qrToken}`
+    : '';
+
+  const permisoSalida = Boolean(device.permisoSalidaPlanta);
+
+  const fechaAsignacion = device.fechaAsig ?? device.fecha_asig;
+
+  const fechaAsignacionTexto = fechaAsignacion
+    ? new Date(fechaAsignacion).toLocaleDateString('es-MX')
+    : 'N/A';
 
   const handleDownloadQR = () => {
-    const canvas = document.getElementById('qr-code') as HTMLCanvasElement;
-    if (!canvas) return;
+    const qrContainer = document.getElementById('qr-code');
+    if (!qrContainer) return;
 
-    const svg = canvas.querySelector('svg');
+    const svg = qrContainer.querySelector('svg');
     if (!svg) return;
 
     const svgData = new XMLSerializer().serializeToString(svg);
-    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const svgBlob = new Blob([svgData], {
+      type: 'image/svg+xml;charset=utf-8',
+    });
+
     const url = URL.createObjectURL(svgBlob);
 
     const link = document.createElement('a');
     link.href = url;
-    link.download = `QR-${device.id}.svg`;
+    link.download = `QR-${device.serviceTag ?? device.id}.svg`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+
     URL.revokeObjectURL(url);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Código QR - {device.id}</DialogTitle>
+          <DialogTitle>Etiqueta QR - {device.serviceTag ?? device.id}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="bg-gray-50 p-6 rounded-lg">
-            <div className="flex flex-col items-center">
-              <div id="qr-code" className="bg-white p-4 rounded-lg">
-                <QRCodeSVG
-                  value={qrData}
-                  size={256}
-                  level="H"
-                  includeMargin={true}
-                />
+        <div className="bg-white rounded-lg border p-6">
+          <div className="text-center mb-5">
+            <h2 className="text-3xl font-bold tracking-wide">FORESIGHT</h2>
+            <p className="text-lg font-semibold">
+              Foresight Mexico Technology Co., Ltd.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-[260px_1fr] gap-6 items-center">
+            <div id="qr-code" className="bg-white p-2 flex justify-center">
+              <QRCodeSVG
+                value={qrUrl || 'SIN_QR_TOKEN'}
+                size={240}
+                level="H"
+                includeMargin
+              />
+            </div>
+
+            <div className="border-l-2 border-black pl-5 space-y-3 text-lg">
+              <div className="border-b pb-2">
+                <p className="font-semibold">{device.serviceTag ?? 'N/A'}</p>
+              </div>
+
+              <div className="border-b pb-2">
+                <p>{device.nombreEmpleado ?? 'N/A'}</p>
+              </div>
+
+              <div className="border-b pb-2">
+                <p>{device.departamento ?? 'N/A'}</p>
+              </div>
+
+              <div className="border-b pb-2">
+                <p>{device.tipo ?? 'N/A'}</p>
+              </div>
+
+              <div className="border-b pb-2">
+                <p>{device.modelo ?? 'N/A'}</p>
+              </div>
+
+              <div className="border-b pb-2">
+                <Badge variant={permisoSalida ? 'default' : 'destructive'}>
+                  {permisoSalida
+                    ? 'Autorizado para salir'
+                    : 'No autorizado para salir'}
+                </Badge>
+              </div>
+
+              <div className="border-b pb-2">
+                <p>{device.status ?? 'N/A'}</p>
+              </div>
+
+              <div>
+                <p>Fecha de asignación: {fechaAsignacionTexto}</p>
               </div>
             </div>
           </div>
-
-          <div className="space-y-3">
-            <div className="bg-gray-50 p-3 rounded">
-              <p className="text-sm text-gray-500">Empleado</p>
-              <p className="font-semibold">{device.nombreEmpleado}</p>
-            </div>
-            <div className="bg-gray-50 p-3 rounded">
-              <p className="text-sm text-gray-500">Equipo</p>
-              <p className="font-mono text-sm">{device.nombreEquipo}</p>
-            </div>
-            <div className="bg-gray-50 p-3 rounded">
-              <p className="text-sm text-gray-500">Service Tag</p>
-              <p className="font-mono text-sm">{device.serviceTag}</p>
-            </div>
-            <div className="bg-gray-50 p-3 rounded">
-              <p className="text-sm text-gray-500">Permiso de Salida</p>
-              <Badge variant={device.permisoSalidaPlanta ? 'default' : 'destructive'}>
-                {device.permisoSalidaPlanta ? '✓ Autorizado para salir' : '✗ No autorizado para salir'}
-              </Badge>
-            </div>
-          </div>
-
-          <Button onClick={handleDownloadQR} className="w-full">
-            <Download className="h-4 w-4 mr-2" />
-            Descargar Código QR
-          </Button>
         </div>
+
+        {!qrToken && (
+          <p className="text-sm text-red-500">
+            Este equipo no tiene QR Token. Revisa que el backend esté mandando qr_token.
+          </p>
+        )}
+
+        <Button onClick={handleDownloadQR} className="w-full" disabled={!qrToken}>
+          <Download className="h-4 w-4 mr-2" />
+          Descargar Código QR
+        </Button>
       </DialogContent>
     </Dialog>
   );

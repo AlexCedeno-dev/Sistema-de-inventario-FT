@@ -319,6 +319,10 @@ export function InventoryNew() {
         rutaCartaResponsiva: row.ruta_carta_responsiva ?? null,
         finGarantia: row.end_warranty ?? null,
 
+        qrToken: row.qr_token ?? null,
+        fechaAsig: row.fecha_asig ?? null,
+        permisoSalidaPlanta: row.permiso_salida ?? null,
+
         usuarioWindows: row.local_user_windows ?? '',
         passwordWindows: row.password_windows ?? '',
         usuarioAdmin: row.usuario_admin ?? '',
@@ -1044,7 +1048,7 @@ const handleConfirmarEntrega = async ({
                               Generar documento
                             </Button>
                           )}
-                          
+
                         <Button
                           size="sm"
                           variant="destructive"

@@ -28,6 +28,14 @@ export type InventoryDeviceModal = {
       rutaCartaResponsiva?: string | null;
       finGarantia?: string | null;
 
+      qrToken?: string | null;
+      qr_token?: string | null;
+
+      fechaAsig?: string | null;
+      fecha_asig?: string | null;
+
+      permisoSalidaPlanta?: boolean | number | null;
+
       usuarioWindows?: string;
       passwordWindows?: string;
       usuarioAdmin?: string;
