@@ -11,6 +11,7 @@ import { InventoryABC } from './pages/InventoryABC';
 import { useAuth } from './context/AuthContext';
 import { FirmaEquipo } from './pages/FirmaEquipo';
 import { HistorialEntregas } from './pages/HistorialEntregas';
+import { ValidarEquipoQR } from './pages/ValidarEquipoQR';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -47,6 +48,10 @@ export const router = createBrowserRouter(
     {
       path:'firma/:token',
       Component: FirmaEquipo
+    },
+    {
+      path: 'validar-equipo/:token',
+      Component: ValidarEquipoQR
     },
     {
       path: '/',

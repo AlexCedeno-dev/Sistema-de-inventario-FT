@@ -9,7 +9,6 @@ export type InventoryDeviceQR = {
   idEquipo: string | null;
   qrToken?: string | null;
   qr_token?: string | null;
-
   serviceTag: string | null;
   nombreEmpleado: string | null;
   departamento: string | null;
@@ -19,7 +18,7 @@ export type InventoryDeviceQR = {
   status: string | null;
   fechaAsig?: string | null;
   fecha_asig?: string | null;
-  permisoSalidaPlanta?: boolean | number | null;
+  permisoSalidaPlanta?: boolean | number | string | null;
 };
 
 interface QRModalProps {
@@ -31,121 +30,144 @@ interface QRModalProps {
 export function QRModal({ device, open, onOpenChange }: QRModalProps) {
   if (!device) return null;
 
-  const qrToken = device.qrToken ?? device.qr_token;
-
+  // --- LÓGICA INTACTA ---
   const basePath = import.meta.env.BASE_URL || '/';
+  const qrToken = device.qrToken ?? device.qr_token ?? '';
+  const tieneQrToken = qrToken.trim().length > 0;
+  const qrUrl = `${window.location.origin}${basePath}validar-equipo/${qrToken}`;
 
-  const qrUrl = qrToken
-    ? `${window.location.origin}${basePath}validar-equipo/${qrToken}`
-    : '';
-
-  const permisoSalida = Boolean(device.permisoSalidaPlanta);
+  const permisoSalida =
+    device.permisoSalidaPlanta === true ||
+    device.permisoSalidaPlanta === 1 ||
+    device.permisoSalidaPlanta === '1';
 
   const fechaAsignacion = device.fechaAsig ?? device.fecha_asig;
-
   const fechaAsignacionTexto = fechaAsignacion
     ? new Date(fechaAsignacion).toLocaleDateString('es-MX')
     : 'N/A';
 
-  const handleDownloadQR = () => {
-    const qrContainer = document.getElementById('qr-code');
-    if (!qrContainer) return;
+  const API_URL = import.meta.env.VITE_API_URL;
 
-    const svg = qrContainer.querySelector('svg');
-    if (!svg) return;
-
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const svgBlob = new Blob([svgData], {
-      type: 'image/svg+xml;charset=utf-8',
-    });
-
-    const url = URL.createObjectURL(svgBlob);
-
+  const handleDownloadQR = async () => {
+    if (!device?.idEquipo) return;
+    const res = await fetch(`${API_URL}/equipos/${device.idEquipo}/qr-etiqueta`);
+    if (!res.ok) {
+      alert('No se pudo descargar la etiqueta QR');
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `QR-${device.serviceTag ?? device.id}.svg`;
+    link.download = `Etiqueta-${device.serviceTag ?? device.idEquipo}.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-
     URL.revokeObjectURL(url);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl max-h-[95vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Etiqueta QR - {device.serviceTag ?? device.id}</DialogTitle>
+          <DialogTitle className="text-lg font-medium text-gray-500">
+            Etiqueta QR - {device.serviceTag ?? device.id}
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="bg-white rounded-lg border p-6">
-          <div className="text-center mb-5">
-            <h2 className="text-3xl font-bold tracking-wide">FORESIGHT</h2>
-            <p className="text-lg font-semibold">
+        {/* 
+            Ajuste de Proporción: p-10 en móviles y p-12 en desktop para que se vea centrado.
+        */}
+        <div id="qr-label" className="bg-white rounded-xl border p-8 md:p-12 w-full shadow-sm">
+          {/* Header */}
+          <div className="text-center mb-10">
+            <h2 className="text-4xl font-bold tracking-tight text-black">FORESIGHT</h2>
+            <p className="text-lg font-medium text-gray-600">
               Foresight Mexico Technology Co., Ltd.
             </p>
           </div>
 
-          <div className="grid grid-cols-[260px_1fr] gap-6 items-center">
-            <div id="qr-code" className="bg-white p-2 flex justify-center">
+          {/* 
+              Cuerpo con Grid equilibrado:
+              Se añadió pr-6 y pl-10 a la columna de información para que el texto 
+              no toque el borde derecho y se vea proporcional al borde izquierdo.
+          */}
+          <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-8 items-center">
+            {/* QR Section */}
+            <div id="qr-code" className="flex flex-col items-center justify-center bg-gray-50 p-6 rounded-lg border-2 border-dashed border-gray-200">
               <QRCodeSVG
                 value={qrUrl || 'SIN_QR_TOKEN'}
-                size={240}
+                size={200}
                 level="H"
                 includeMargin
               />
+              <span className="mt-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                Scan for Verification
+              </span>
             </div>
 
-            <div className="border-l-2 border-black pl-5 space-y-3 text-lg">
-              <div className="border-b pb-2">
-                <p className="font-semibold">{device.serviceTag ?? 'N/A'}</p>
+            {/* 
+                INFO SECTION: 
+                - pl-10 crea el espacio desde la línea negra.
+                - pr-10 crea el espacio hacia el borde derecho de la tarjeta.
+            */}
+            <div className="md:border-l-2 md:border-black pl-10 pr-10 space-y-4 text-lg">
+              <div className="border-b border-gray-100 pb-3">
+                <p className="text-xs font-bold text-gray-400 uppercase mb-1">ID de Equipo</p>
+                <p className="font-bold text-xl leading-none">FSMX-{device.serviceTag}-{device.idEquipo}</p>
               </div>
 
-              <div className="border-b pb-2">
-                <p>{device.nombreEmpleado ?? 'N/A'}</p>
+              <div className="border-b border-gray-100 pb-3">
+                <p className="text-xs font-bold text-gray-400 uppercase mb-1">Nombre del Empleado</p>
+                <p className="font-semibold text-gray-800 leading-tight">{device.nombreEmpleado ?? 'N/A'}</p>
               </div>
 
-              <div className="border-b pb-2">
-                <p>{device.departamento ?? 'N/A'}</p>
+              <div className="grid grid-cols-2 gap-4 border-b border-gray-100 pb-3">
+                <div>
+                  <p className="text-xs font-bold text-gray-400 uppercase mb-1">Depart.</p>
+                  <p className="font-semibold text-base">{device.departamento ?? 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-400 uppercase mb-1">Modelo</p>
+                  <p className="font-semibold text-base">{device.modelo ?? 'N/A'}</p>
+                </div>
               </div>
 
-              <div className="border-b pb-2">
-                <p>{device.tipo ?? 'N/A'}</p>
+              <div className="border-b border-gray-100 pb-3 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-gray-400 uppercase mb-1">Permiso de Salida</p>
+                  <Badge variant={permisoSalida ? 'default' : 'destructive'} className="text-xs px-3 py-0">
+                    {permisoSalida ? 'Autorizado' : 'No Autorizado'}
+                  </Badge>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-bold text-gray-400 uppercase mb-1">Estado</p>
+                  <p className="font-bold text-blue-600 uppercase text-sm">{device.status ?? 'N/A'}</p>
+                </div>
               </div>
 
-              <div className="border-b pb-2">
-                <p>{device.modelo ?? 'N/A'}</p>
-              </div>
-
-              <div className="border-b pb-2">
-                <Badge variant={permisoSalida ? 'default' : 'destructive'}>
-                  {permisoSalida
-                    ? 'Autorizado para salir'
-                    : 'No autorizado para salir'}
-                </Badge>
-              </div>
-
-              <div className="border-b pb-2">
-                <p>{device.status ?? 'N/A'}</p>
-              </div>
-
-              <div>
-                <p>Fecha de asignación: {fechaAsignacionTexto}</p>
+              <div className="pt-2">
+                <p className="text-sm font-medium text-gray-500">
+                  Fecha de asignación: <span className="text-black font-bold">{fechaAsignacionTexto}</span>
+                </p>
               </div>
             </div>
           </div>
         </div>
 
-        {!qrToken && (
-          <p className="text-sm text-red-500">
-            Este equipo no tiene QR Token. Revisa que el backend esté mandando qr_token.
-          </p>
-        )}
+        {/* Footer del Modal */}
+        <div className="mt-4 space-y-3">
+          <div className="bg-gray-50 p-3 rounded border border-gray-200">
+            <p className="text-[10px] font-mono text-gray-400 truncate text-center">
+              {qrUrl}
+            </p>
+          </div>
 
-        <Button onClick={handleDownloadQR} className="w-full" disabled={!qrToken}>
-          <Download className="h-4 w-4 mr-2" />
-          Descargar Código QR
-        </Button>
+          <Button onClick={handleDownloadQR} className="w-full h-12 text-md font-bold" disabled={!tieneQrToken}>
+            <Download className="h-5 w-5 mr-2" />
+            Descargar Etiqueta QR (PDF)
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

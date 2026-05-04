@@ -1084,7 +1084,30 @@ const handleConfirmarEntrega = async ({
         device={selectedDevice}
         open={isDetailsModalOpen}
         onOpenChange={setIsDetailsModalOpen}
-        onUploadResponsiva={handleSubirResponsivaFirmada}
+        onUpdated={(deviceActualizado) => {
+            setDevices((prev) =>
+              prev.map((d) =>
+                d.idEquipo === deviceActualizado.idEquipo
+                  ? { ...d, ...deviceActualizado }
+                  : d
+              )
+            );
+
+            setSelectedDevice((prev) =>
+              prev?.idEquipo === deviceActualizado.idEquipo
+                ? { ...prev, ...deviceActualizado }
+                : prev
+            );
+
+            setQRDevice((prev) =>
+              prev?.idEquipo === deviceActualizado.idEquipo
+                ? { ...prev, ...deviceActualizado }
+                : prev
+            );
+
+            loadInventoryNew();
+          }}
+                  onUploadResponsiva={handleSubirResponsivaFirmada}
         onDownloadResponsiva={handleDescargarResponsiva}
       />
 
