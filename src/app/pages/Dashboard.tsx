@@ -12,116 +12,115 @@ import {
   Search,
   Cpu,
   MemoryStick,
+  MapPin,
+  RefreshCw,
 } from 'lucide-react';
 import { Progress } from '../components/ui/progress';
+import {
+  obtenerDashboardMonitoreo,
+  type MonitoringDevice,
+} from '../services/monitoringApi';
 
-type MonitoringDevice = {
-  hostname: string;
-  ip: string;
-  mac: string;
-  usuario: string;
-  empleado?: string;
-  empleadoViejo?: string;
-  serviceTag?: string;
-  idEmpleado?: string;
-  idEmpleadoViejo?: string;
-  departamento?: string;
-  departamentoViejo?: string;
-  registradoNuevo?: boolean;
-  registradoViejo?: boolean;
-  plataforma: string;
-  tipoSistema: string;
-  uptime: number;
-  ubicacion?: string;
-  fecha: string;
-  lastSeen: string;
-  estado: string;
-  statusEmpleadoNuevo?: string;
-  statusEmpleadoViejo?: string;
-  cpu: {
-    modelo: string;
-    nucleos: number;
-    velocidad_mhz: number;
-    temperatura: number | null;
-  };
-  ram: {
-    totalGB: number;
-    libreGB: number;
-    usoGB: number;
-    porcentaje: number;
-  };
-  discos: {
-    disco: string;
-    tamañoGB: number;
-    usadoGB: number;
-    porcentaje: number;
-  }[];
-  sistema: {
-    edicion: string;
-    version: string;
-    instalado?: string;
-    build?: string;
-    especificacion: string;
-    idDispositivo: string;
-    idProducto: string;
-  };
-};
+function toText(value: unknown, fallback = 'N/A') {
+  if (
+    value === null ||
+    value === undefined ||
+    value === '' ||
+    value === 'NULL' ||
+    value === 'null'
+  ) {
+    return fallback;
+  }
+
+  return String(value);
+}
+
+function toNumber(value: unknown, fallback = 0) {
+  if (typeof value === 'number' && !Number.isNaN(value)) return value;
+
+  const num = Number(value);
+
+  return Number.isFinite(num) ? num : fallback;
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return 'Sin fecha';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return 'Sin fecha';
+
+  return date.toLocaleString('es-MX');
+}
 
 export function Dashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [devices, setDevices] = useState<MonitoringDevice[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<MonitoringDevice | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  //LOCAL y server
-  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3006';
-
+  const [loading, setLoading] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [error, setError] = useState('');
 
   const loadDevices = async () => {
     try {
-      const response = await fetch(`${API_BASE}/dashboard-monitoreo`);
+      setLoading(true);
+      setError('');
 
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}`);
-      }
-
-      const data = await response.json();
+      const data = await obtenerDashboardMonitoreo();
 
       setDevices(data);
+      setLastRefresh(new Date());
 
-      if (selectedDevice) {
+      setSelectedDevice((current) => {
+        if (!current) return current;
+
         const updated = data.find(
-          (dev: MonitoringDevice) =>
-            dev.hostname === selectedDevice.hostname &&
-            dev.ip === selectedDevice.ip
+          (dev) => dev.monitoreoId === current.monitoreoId
         );
-        if (updated) setSelectedDevice(updated);
-      }
-    } catch (error) {
-      console.error('Error cargando dashboard-monitoreo:', error);
+
+        return updated || current;
+      });
+    } catch (err) {
+      console.error('Error cargando dashboard-monitoreo:', err);
+      setError(err instanceof Error ? err.message : 'Error cargando dashboard');
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     loadDevices();
+
     const interval = setInterval(loadDevices, 5000);
+
     return () => clearInterval(interval);
   }, []);
 
   const onlineDevices = useMemo(
-    () => devices.filter((d) => d.estado.includes('Online')),
+    () => devices.filter((d) => d.estado?.includes('Online')),
     [devices]
   );
 
   const offlineDevices = useMemo(
-    () => devices.filter((d) => d.estado.includes('Offline')),
+    () => devices.filter((d) => d.estado?.includes('Offline')),
     [devices]
   );
 
   const highDiskUsage = useMemo(
     () =>
       devices.filter((device) =>
-        device.discos?.some((disco) => disco.porcentaje > 85)
+        device.discos?.some((disco) => toNumber(disco.porcentaje) > 85)
+      ).length,
+    [devices]
+  );
+
+  const devicesWithLocation = useMemo(
+    () =>
+      devices.filter(
+        (device) =>
+          device.ubicacion?.ciudad &&
+          device.ubicacion.ciudad !== 'N/A'
       ).length,
     [devices]
   );
@@ -133,14 +132,16 @@ export function Dashboard() {
       const searchableText = `
         ${device.hostname ?? ''}
         ${device.empleado ?? ''}
-        ${device.empleadoViejo ?? ''}
         ${device.ip ?? ''}
         ${device.usuario ?? ''}
         ${device.serviceTag ?? ''}
         ${device.idEmpleado ?? ''}
-        ${device.idEmpleadoViejo ?? ''}
         ${device.departamento ?? ''}
-        ${device.departamentoViejo ?? ''}
+        ${device.planta ?? ''}
+        ${device.marca ?? ''}
+        ${device.modelo ?? ''}
+        ${device.ubicacion?.texto ?? ''}
+        ${device.ubicacion?.ipPublica ?? ''}
       `.toLowerCase();
 
       return searchableText.includes(term);
@@ -155,16 +156,43 @@ export function Dashboard() {
   return (
     <div className="p-8 space-y-6 bg-slate-50 min-h-screen">
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-8 text-white shadow-xl">
-        <div className="flex items-center gap-3 mb-2">
-          <Activity className="h-8 w-8" />
-          <h1 className="text-4xl font-bold">Dashboard de Monitoreo</h1>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <Activity className="h-8 w-8" />
+              <h1 className="text-4xl font-bold">Dashboard de Monitoreo</h1>
+            </div>
+
+            <p className="text-blue-100 text-lg">
+              Vista en tiempo real del estado de los equipos registrados
+            </p>
+
+            <p className="text-blue-100 text-sm mt-2">
+              Última actualización:{' '}
+              {lastRefresh ? lastRefresh.toLocaleTimeString('es-MX') : 'Sin actualizar'}
+            </p>
+          </div>
+
+          <Button
+            type="button"
+            variant="secondary"
+            className="rounded-xl"
+            onClick={loadDevices}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Actualizar
+          </Button>
         </div>
-        <p className="text-blue-100 text-lg">
-          Vista en tiempo real del estado de los equipos
-        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 text-sm">
+          {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <Card className="shadow-md border-0 rounded-2xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Equipos</CardTitle>
@@ -172,13 +200,13 @@ export function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{devices.length}</div>
-            <p className="text-xs text-gray-500 mt-1">Equipos monitoreados</p>
+            <p className="text-xs text-gray-500 mt-1">Equipos registrados</p>
           </CardContent>
         </Card>
 
         <Card className="shadow-md border-0 rounded-2xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Equipos Online</CardTitle>
+            <CardTitle className="text-sm font-medium">Online</CardTitle>
             <Activity className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
@@ -195,7 +223,7 @@ export function Dashboard() {
 
         <Card className="shadow-md border-0 rounded-2xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Equipos Offline</CardTitle>
+            <CardTitle className="text-sm font-medium">Offline</CardTitle>
             <AlertTriangle className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
@@ -218,13 +246,26 @@ export function Dashboard() {
             <p className="text-xs text-gray-500 mt-1">Uso de disco &gt; 85%</p>
           </CardContent>
         </Card>
+
+        <Card className="shadow-md border-0 rounded-2xl">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Con Ubicación</CardTitle>
+            <MapPin className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600">
+              {devicesWithLocation}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Ubicación IP pública</p>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="flex items-center gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
-            placeholder="Buscar por hostname, empleado, IP, service tag o id empleado..."
+            placeholder="Buscar por hostname, empleado, IP, service tag, modelo, planta o ubicación..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 h-11 rounded-xl border-gray-200 shadow-sm"
@@ -236,103 +277,100 @@ export function Dashboard() {
         <CardHeader>
           <CardTitle>Equipos Monitoreados</CardTitle>
         </CardHeader>
+
         <CardContent>
           <div className="overflow-x-auto rounded-xl">
             <table className="w-full">
               <thead>
                 <tr className="border-b bg-slate-100/80">
-                  <th className="text-left py-3 px-4 font-semibold text-sm">Estado agente</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">Estado</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">Hostname</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">Usuario</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">Empleado Nuevo</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">ID Nuevo</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">Empleado Viejo</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">ID Viejo</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">Nuevo</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">Viejo</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">Status Nuevo</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">Status Viejo</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">Empleado</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">Usuario Windows</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">Service Tag</th>
-                  <th className="text-left py-3 px-4 font-semibold text-sm">IP</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">Equipo</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">IP Local</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">Ubicación</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">CPU</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">RAM</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">Disco</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm">Última conexión</th>
                   <th className="text-left py-3 px-4 font-semibold text-sm">Acciones</th>
                 </tr>
               </thead>
+
               <tbody>
-                {filteredDevices.map((device, index) => {
+                {filteredDevices.map((device) => {
                   const maxDiskUsage = device.discos?.length
-                    ? Math.max(...device.discos.map((d) => d.porcentaje))
+                    ? Math.max(...device.discos.map((d) => toNumber(d.porcentaje)))
                     : 0;
+
+                  const ramUsage = toNumber(device.ram?.porcentaje);
 
                   return (
                     <tr
-                      key={index}
+                      key={device.monitoreoId}
                       className="border-b hover:bg-slate-50 transition-colors"
                     >
                       <td className="py-3 px-4">
                         <Badge
                           variant={
-                            device.estado.includes('Online')
+                            device.estado?.includes('Online')
                               ? 'default'
                               : 'destructive'
                           }
-                          className="text-xs"
+                          className="text-xs whitespace-nowrap"
                         >
                           {device.estado}
                         </Badge>
                       </td>
 
-                      <td className="py-3 px-4 font-mono text-sm">{device.hostname}</td>
-                      <td className="py-3 px-4 text-sm">{device.usuario}</td>
+                      <td className="py-3 px-4 font-mono text-sm">
+                        {toText(device.hostname)}
+                      </td>
+
+                      <td className="py-3 px-4 text-sm min-w-[160px]">
+                        <div className="font-medium">{toText(device.empleado)}</div>
+                        <div className="text-xs text-gray-500">
+                          ID: {toText(device.idEmpleado)}
+                        </div>
+                      </td>
 
                       <td className="py-3 px-4 text-sm">
-                        {device.empleado ?? 'No registrado en inventario nuevo'}
+                        {toText(device.usuario)}
                       </td>
 
                       <td className="py-3 px-4 font-mono text-sm">
-                        {device.idEmpleado ?? 'N/A'}
+                        {toText(device.serviceTag)}
                       </td>
 
-                      <td className="py-3 px-4 text-sm">
-                        {device.empleadoViejo ?? 'No registrado en inventario viejo'}
+                      <td className="py-3 px-4 text-sm min-w-[160px]">
+                        <div className="font-medium">
+                          {toText(device.marca)} {toText(device.modelo, '')}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {toText(device.tipoEquipo)}
+                        </div>
                       </td>
 
                       <td className="py-3 px-4 font-mono text-sm">
-                        {device.idEmpleadoViejo ?? 'N/A'}
+                        {toText(device.ip)}
+                      </td>
+
+                      <td className="py-3 px-4 text-sm min-w-[180px]">
+                        <div className="font-medium">
+                          {toText(device.ubicacion?.texto, 'Sin ubicación')}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          IP pública: {toText(device.ubicacion?.ipPublica)}
+                        </div>
                       </td>
 
                       <td className="py-3 px-4">
-                        <Badge variant={device.registradoNuevo ? 'default' : 'secondary'}>
-                          {device.registradoNuevo ? 'Registrado' : 'No registrado'}
-                        </Badge>
-                      </td>
-
-                      <td className="py-3 px-4">
-                        <Badge variant={device.registradoViejo ? 'default' : 'secondary'}>
-                          {device.registradoViejo ? 'Registrado' : 'No registrado'}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4 text-sm">
-                          {device.statusEmpleadoNuevo ?? 'N/A'}
-                        </td>
-
-                        <td className="py-3 px-4 text-sm">
-                          {device.statusEmpleadoViejo ?? 'N/A'}
-                        </td>
-
-                      <td className="py-3 px-4 font-mono text-sm">
-                        {device.serviceTag ?? 'N/A'}
-                      </td>
-
-                      <td className="py-3 px-4 font-mono text-sm">{device.ip}</td>
-
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-[110px]">
                           <Cpu className="h-4 w-4 text-gray-400" />
                           <span className="text-sm">
-                            {device.cpu?.nucleos ?? 0} núcleos
+                            {toText(device.cpu?.nucleos, '0')} núcleos
                           </span>
                         </div>
                       </td>
@@ -342,13 +380,10 @@ export function Dashboard() {
                           <div className="flex items-center gap-2">
                             <MemoryStick className="h-4 w-4 text-gray-400" />
                             <span className="text-xs">
-                              {device.ram?.porcentaje?.toFixed(0) ?? 0}%
+                              {ramUsage.toFixed(0)}%
                             </span>
                           </div>
-                          <Progress
-                            value={device.ram?.porcentaje ?? 0}
-                            className="h-1.5"
-                          />
+                          <Progress value={ramUsage} className="h-1.5" />
                         </div>
                       </td>
 
@@ -360,24 +395,19 @@ export function Dashboard() {
                               {maxDiskUsage.toFixed(0)}%
                             </span>
                           </div>
-                          <Progress
-                            value={maxDiskUsage}
-                            className={`h-1.5 ${
-                              maxDiskUsage > 85
-                                ? 'bg-red-200'
-                                : maxDiskUsage > 70
-                                ? 'bg-yellow-200'
-                                : ''
-                            }`}
-                          />
+                          <Progress value={maxDiskUsage} className="h-1.5" />
                         </div>
+                      </td>
+
+                      <td className="py-3 px-4 text-sm min-w-[150px]">
+                        {formatDate(device.lastSeen)}
                       </td>
 
                       <td className="py-3 px-4">
                         <Button
                           size="sm"
                           variant="outline"
-                          className="rounded-lg"
+                          className="rounded-lg whitespace-nowrap"
                           onClick={() => handleViewDetails(device)}
                         >
                           Ver Detalles

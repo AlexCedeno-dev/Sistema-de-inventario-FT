@@ -18,52 +18,12 @@ import {
   MemoryStick,
   HardDrive,
   Info,
+  MapPin,
+  Wifi,
+  User,
+  Laptop,
 } from 'lucide-react';
-
-type MonitoringDevice = {
-  hostname: string | null;
-  ip: string | null;
-  mac: string | null;
-  usuario: string | null;
-  empleado?: string | null;
-  serviceTag?: string | null;
-  idEmpleado?: string | null;
-  departamento?: string | null;
-  plataforma: string | null;
-  tipoSistema: string | null;
-  uptime: number | null;
-  ubicacion?: string | null;
-  fecha: string | null;
-  lastSeen: string | null;
-  estado: string | null;
-  cpu: {
-    modelo: string | null;
-    nucleos: number | null;
-    velocidad_mhz: number | null;
-    temperatura: number | null;
-  };
-  ram: {
-    totalGB: number | null;
-    libreGB: number | null;
-    usoGB: number | null;
-    porcentaje: number | null;
-  };
-  discos: {
-    disco: string | null;
-    tamañoGB: number | null;
-    usadoGB: number | null;
-    porcentaje: number | null;
-  }[];
-  sistema: {
-    edicion: string | null;
-    version: string | null;
-    instalado?: string | null;
-    build?: string | null;
-    especificacion: string | null;
-    idDispositivo: string | null;
-    idProducto: string | null;
-  };
-};
+import type { MonitoringDevice } from '../services/monitoringApi';
 
 interface MonitoringDetailsModalProps {
   device: MonitoringDevice | null;
@@ -80,22 +40,19 @@ export function MonitoringDetailsModal({
 
   if (!device) return null;
 
-  const toText = (
-  value: unknown,
-  fallback='No disponible'
-  ) => {
+  const toText = (value: unknown, fallback = 'No disponible') => {
+    if (
+      value === null ||
+      value === undefined ||
+      value === '' ||
+      value === 'NULL' ||
+      value === 'null' ||
+      value === 'N/A'
+    ) {
+      return fallback;
+    }
 
-  if(
-    value===null ||
-    value===undefined ||
-    value==='' ||
-    value==='NULL' ||
-    value==='null'
-  ){
-    return fallback;
-  }
-
-  return String(value);
+    return String(value);
   };
 
   const toNumberText = (value: unknown, decimals = 2) => {
@@ -105,16 +62,23 @@ export function MonitoringDetailsModal({
 
   const safeDate = (value: string | null | undefined) => {
     if (!value) return 'Sin fecha';
+
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return 'NULL';
+
+    if (Number.isNaN(date.getTime())) return 'Sin fecha';
+
     return date.toLocaleString('es-MX');
   };
 
   const formatUptime = (seconds: number | null | undefined) => {
-    if (typeof seconds !== 'number' || Number.isNaN(seconds)) return 'No disponible';
+    if (typeof seconds !== 'number' || Number.isNaN(seconds)) {
+      return 'No disponible';
+    }
+
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
+
     return `${days}d ${hours}h ${minutes}m`;
   };
 
@@ -132,20 +96,31 @@ export function MonitoringDetailsModal({
 
   const getUsageTone = (percentage: number | null | undefined) => {
     const value = typeof percentage === 'number' ? percentage : 0;
+
     if (value < 60) return 'text-green-600';
     if (value < 80) return 'text-yellow-600';
+
     return 'text-red-600';
   };
 
   const maskValue = (value: unknown) => {
     const text = toText(value);
+
     if (!showSensitive) return '••••••••';
+
     return text;
   };
 
-  const maxDiskUsage = Array.isArray(device.discos) && device.discos.length > 0
-    ? Math.max(...device.discos.map((d) => (typeof d.porcentaje === 'number' ? d.porcentaje : 0)))
-    : null;
+  const maxDiskUsage =
+    Array.isArray(device.discos) && device.discos.length > 0
+      ? Math.max(
+          ...device.discos.map((d) =>
+            typeof d.porcentaje === 'number' ? d.porcentaje : 0
+          )
+        )
+      : null;
+
+  const locationText = device.ubicacion?.texto || 'Sin ubicación registrada';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -175,17 +150,18 @@ export function MonitoringDetailsModal({
           </DialogTitle>
 
           <DialogDescription className="text-sm text-gray-500">
-            Detalle completo del equipo monitoreado e información cruzada del inventario.
+            Detalle completo del equipo monitoreado, inventario, hardware, red y ubicación.
           </DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="general" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="inventario">Inventario</TabsTrigger>
             <TabsTrigger value="hardware">Hardware</TabsTrigger>
             <TabsTrigger value="discos">Discos</TabsTrigger>
             <TabsTrigger value="sistema">Sistema</TabsTrigger>
+            <TabsTrigger value="ubicacion">Ubicación</TabsTrigger>
           </TabsList>
 
           <TabsContent value="general" className="space-y-4">
@@ -203,12 +179,12 @@ export function MonitoringDetailsModal({
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-500">Usuario</p>
+                <p className="text-sm text-gray-500">Usuario Windows</p>
                 <p className="font-semibold">{toText(device.usuario)}</p>
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-500">IP</p>
+                <p className="text-sm text-gray-500">IP Local</p>
                 <p className="font-mono text-sm">{toText(device.ip)}</p>
               </div>
 
@@ -233,8 +209,8 @@ export function MonitoringDetailsModal({
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-500">Ubicación</p>
-                <p className="font-semibold">{toText(device.ubicacion)}</p>
+                <p className="text-sm text-gray-500">Ubicación aproximada</p>
+                <p className="font-semibold">{locationText}</p>
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">
@@ -243,14 +219,14 @@ export function MonitoringDetailsModal({
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-500">Fecha de Registro</p>
+                <p className="text-sm text-gray-500">Último Reporte</p>
                 <p className="text-sm">{safeDate(device.fecha)}</p>
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-500">Disco más alto</p>
                 <p className={`font-semibold ${getUsageTone(maxDiskUsage)}`}>
-                  {maxDiskUsage !== null ? `${toNumberText(maxDiskUsage, 0)}%` : 'NULL'}
+                  {maxDiskUsage !== null ? `${toNumberText(maxDiskUsage, 0)}%` : 'Sin datos'}
                 </p>
               </div>
             </div>
@@ -259,7 +235,10 @@ export function MonitoringDetailsModal({
           <TabsContent value="inventario" className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-500">Empleado</p>
+                <div className="flex items-center gap-2 mb-2">
+                  <User className="h-4 w-4 text-gray-500" />
+                  <p className="text-sm text-gray-500">Empleado asignado</p>
+                </div>
                 <p className="font-semibold">{toText(device.empleado)}</p>
               </div>
 
@@ -269,8 +248,23 @@ export function MonitoringDetailsModal({
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-500">Status Empleado</p>
+                <p className="font-semibold">{toText(device.statusEmpleado)}</p>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm text-gray-500">Departamento</p>
                 <p className="font-semibold">{toText(device.departamento)}</p>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-500">Planta</p>
+                <p className="font-semibold">{toText(device.planta)}</p>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-500">Fecha Asignación</p>
+                <p className="text-sm">{safeDate(device.fechaAsignacion)}</p>
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">
@@ -279,25 +273,51 @@ export function MonitoringDetailsModal({
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-500">Nombre de equipo</p>
-                <p className="font-mono text-sm">{toText(device.hostname)}</p>
+                <p className="text-sm text-gray-500">Serial Number</p>
+                <p className="font-mono text-sm">{toText(device.serialNumber)}</p>
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-500">Ubicación inventario</p>
-                <p className="font-semibold">{toText(device.ubicacion)}</p>
+                <p className="text-sm text-gray-500">Nombre equipo inventario</p>
+                <p className="font-mono text-sm">
+                  {toText(device.nombreEquipoInventario)}
+                </p>
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg col-span-1 md:col-span-3">
                 <p className="text-sm text-gray-500">Observación</p>
                 <p className="text-sm">
-                  Información cruzada desde monitoreo + inventario. Campos no disponibles: NULL.
+                  Esta información viene del cruce entre monitoreo_equipos, equipos y empleados.
                 </p>
               </div>
             </div>
           </TabsContent>
 
           <TabsContent value="hardware" className="space-y-4">
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <Laptop className="h-4 w-4 text-gray-500" />
+                <h3 className="font-semibold">Equipo</h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <p className="text-sm text-gray-500">Marca</p>
+                  <p className="text-sm font-medium">{toText(device.marca)}</p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-500">Modelo</p>
+                  <p className="text-sm font-medium">{toText(device.modelo)}</p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-500">Tipo Equipo</p>
+                  <p className="text-sm font-medium">{toText(device.tipoEquipo)}</p>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="flex items-center gap-2 mb-3">
                 <Cpu className="h-4 w-4 text-gray-500" />
@@ -320,7 +340,7 @@ export function MonitoringDetailsModal({
                   <p className="text-sm font-medium">
                     {device.cpu?.velocidad_mhz != null
                       ? `${toText(device.cpu.velocidad_mhz)} MHz`
-                      : 'NULL'}
+                      : 'No disponible'}
                   </p>
                 </div>
 
@@ -329,7 +349,7 @@ export function MonitoringDetailsModal({
                   <p className="text-sm font-medium">
                     {device.cpu?.temperatura != null
                       ? `${toText(device.cpu.temperatura)} °C`
-                      : 'NULL'}
+                      : 'No disponible'}
                   </p>
                 </div>
               </div>
@@ -347,26 +367,41 @@ export function MonitoringDetailsModal({
                     Uso de memoria:{' '}
                     {device.ram?.porcentaje != null
                       ? `${toNumberText(device.ram.porcentaje)}%`
-                      : 'NULL'}
+                      : 'No disponible'}
                   </span>
 
                   <span className="text-sm font-mono">
-                    {device.ram?.usoGB != null ? `${toNumberText(device.ram.usoGB)} GB` : 'NULL'}
+                    {device.ram?.usoGB != null
+                      ? `${toNumberText(device.ram.usoGB)} GB`
+                      : 'N/A'}
                     {' / '}
-                    {device.ram?.totalGB != null ? `${toNumberText(device.ram.totalGB)} GB` : 'NULL'}
+                    {device.ram?.totalGB != null
+                      ? `${toNumberText(device.ram.totalGB)} GB`
+                      : 'N/A'}
                   </span>
                 </div>
 
-                <Progress value={typeof device.ram?.porcentaje === 'number' ? device.ram.porcentaje : 0} className="h-2" />
+                <Progress
+                  value={
+                    typeof device.ram?.porcentaje === 'number'
+                      ? device.ram.porcentaje
+                      : 0
+                  }
+                  className="h-2"
+                />
 
                 <div className="flex justify-between text-sm text-gray-500">
                   <span>
                     Libre:{' '}
-                    {device.ram?.libreGB != null ? `${toNumberText(device.ram.libreGB)} GB` : 'NULL'}
+                    {device.ram?.libreGB != null
+                      ? `${toNumberText(device.ram.libreGB)} GB`
+                      : 'N/A'}
                   </span>
                   <span>
                     En uso:{' '}
-                    {device.ram?.usoGB != null ? `${toNumberText(device.ram.usoGB)} GB` : 'NULL'}
+                    {device.ram?.usoGB != null
+                      ? `${toNumberText(device.ram.usoGB)} GB`
+                      : 'N/A'}
                   </span>
                 </div>
               </div>
@@ -376,7 +411,7 @@ export function MonitoringDetailsModal({
           <TabsContent value="discos" className="space-y-4">
             {Array.isArray(device.discos) && device.discos.length > 0 ? (
               device.discos.map((disco, index) => (
-                <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                <div key={`${disco.disco}-${index}`} className="bg-gray-50 p-4 rounded-lg">
                   <div className="flex items-center gap-2 mb-3">
                     <HardDrive className="h-4 w-4 text-gray-500" />
                     <h3 className="font-semibold">Disco {toText(disco.disco)}</h3>
@@ -388,26 +423,41 @@ export function MonitoringDetailsModal({
                         Uso del disco:{' '}
                         {disco.porcentaje != null
                           ? `${toNumberText(disco.porcentaje)}%`
-                          : 'NULL'}
+                          : 'No disponible'}
                       </span>
 
                       <span className="text-sm font-mono">
-                        {disco.usadoGB != null ? `${toNumberText(disco.usadoGB)} GB` : 'NULL'}
+                        {disco.usadoGB != null
+                          ? `${toNumberText(disco.usadoGB)} GB`
+                          : 'N/A'}
                         {' / '}
-                        {disco.tamañoGB != null ? `${toNumberText(disco.tamañoGB)} GB` : 'NULL'}
+                        {disco.tamañoGB != null
+                          ? `${toNumberText(disco.tamañoGB)} GB`
+                          : 'N/A'}
                       </span>
                     </div>
 
-                    <Progress value={typeof disco.porcentaje === 'number' ? disco.porcentaje : 0} className="h-2" />
+                    <Progress
+                      value={
+                        typeof disco.porcentaje === 'number'
+                          ? disco.porcentaje
+                          : 0
+                      }
+                      className="h-2"
+                    />
 
                     <div className="flex justify-between text-sm text-gray-500">
                       <span>
                         Usado:{' '}
-                        {disco.usadoGB != null ? `${toNumberText(disco.usadoGB)} GB` : 'NULL'}
+                        {disco.usadoGB != null
+                          ? `${toNumberText(disco.usadoGB)} GB`
+                          : 'N/A'}
                       </span>
                       <span>
                         Total:{' '}
-                        {disco.tamañoGB != null ? `${toNumberText(disco.tamañoGB)} GB` : 'NULL'}
+                        {disco.tamañoGB != null
+                          ? `${toNumberText(disco.tamañoGB)} GB`
+                          : 'N/A'}
                       </span>
                     </div>
                   </div>
@@ -429,19 +479,23 @@ export function MonitoringDetailsModal({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-500">Edición</p>
-                  <p className="font-semibold text-sm">{toText(device.sistema?.edicion)}</p>
+                  <p className="text-sm text-gray-500">Edición Windows</p>
+                  <p className="font-semibold text-sm">
+                    {toText(device.sistema?.edicion)}
+                  </p>
                 </div>
 
                 <div>
-                  <p className="text-sm text-gray-500">Versión</p>
-                  <p className="font-mono text-sm">{toText(device.sistema?.version)}</p>
-                </div>
-
-                <div>
-                  <p className="text-sm text-gray-500">Instalado / Build</p>
+                  <p className="text-sm text-gray-500">Versión Windows</p>
                   <p className="font-mono text-sm">
-                    {toText(device.sistema?.instalado ?? device.sistema?.build ?? null)}
+                    {toText(device.sistema?.version)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-500">Build</p>
+                  <p className="font-mono text-sm">
+                    {toText(device.sistema?.build)}
                   </p>
                 </div>
 
@@ -460,7 +514,7 @@ export function MonitoringDetailsModal({
                 </div>
 
                 <div>
-                  <p className="text-sm text-gray-500">ID Producto</p>
+                  <p className="text-sm text-gray-500">ID Producto / Serial</p>
                   <p className="font-mono text-sm">
                     {maskValue(device.sistema?.idProducto)}
                   </p>
@@ -479,15 +533,113 @@ export function MonitoringDetailsModal({
                   <p className="text-gray-500">Equipo</p>
                   <p className="font-medium">{toText(device.hostname)}</p>
                 </div>
+
                 <div>
                   <p className="text-gray-500">Usuario</p>
                   <p className="font-medium">{toText(device.usuario)}</p>
                 </div>
+
                 <div>
                   <p className="text-gray-500">Service Tag</p>
                   <p className="font-mono">{toText(device.serviceTag)}</p>
                 </div>
               </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="ubicacion" className="space-y-4">
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <MapPin className="h-4 w-4 text-gray-500" />
+                <h3 className="font-semibold">Última ubicación aproximada</h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">Ubicación</p>
+                  <p className="font-semibold">{locationText}</p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-500">Ciudad</p>
+                  <p className="font-semibold">{toText(device.ubicacion?.ciudad)}</p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-500">Estado</p>
+                  <p className="font-semibold">{toText(device.ubicacion?.estado)}</p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-500">País</p>
+                  <p className="font-semibold">{toText(device.ubicacion?.pais)}</p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-500">Latitud</p>
+                  <p className="font-mono text-sm">
+                    {device.ubicacion?.latitud != null
+                      ? maskValue(device.ubicacion.latitud)
+                      : 'No disponible'}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-500">Longitud</p>
+                  <p className="font-mono text-sm">
+                    {device.ubicacion?.longitud != null
+                      ? maskValue(device.ubicacion.longitud)
+                      : 'No disponible'}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-500">Última ubicación recibida</p>
+                  <p className="text-sm">
+                    {safeDate(device.ubicacion?.ultimaUbicacionAt)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-500">Fuente</p>
+                  <p className="font-semibold">{toText(device.ubicacion?.fuente)}</p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-500">Proveedor</p>
+                  <p className="font-semibold">{toText(device.ubicacion?.proveedor)}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex items-center gap-2 mb-3">
+                <Wifi className="h-4 w-4 text-gray-500" />
+                <h3 className="font-semibold">Red detectada</h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">IP Local</p>
+                  <p className="font-mono text-sm">{toText(device.ip)}</p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-500">IP Pública</p>
+                  <p className="font-mono text-sm">
+                    {toText(device.ubicacion?.ipPublica)}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-gray-500">MAC</p>
+                  <p className="font-mono text-sm">{maskValue(device.mac)}</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-gray-500 mt-4">
+                Nota: la ubicación por IP pública es aproximada. Puede mostrar la ciudad del proveedor, firewall, VPN o nodo de salida de internet.
+              </p>
             </div>
           </TabsContent>
         </Tabs>
