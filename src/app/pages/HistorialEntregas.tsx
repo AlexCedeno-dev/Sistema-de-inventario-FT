@@ -40,24 +40,21 @@ export function HistorialEntregas() {
   const [loading, setLoading] = useState(false);
 
   const formatearFecha = (fecha: string) => {
-    if (!fecha) return 'N/A';
+  if (!fecha) return 'N/A';
 
-    const date = new Date(fecha);
+  const date = new Date(fecha);
 
-    if (isNaN(date.getTime())) return 'N/A';
+  if (isNaN(date.getTime())) return 'N/A';
 
-    return new Date(date.getTime() - 6 * 60 * 60 * 1000).toLocaleString(
-      'es-MX',
-      {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      }
-    );
-  };
+  return date.toLocaleString('es-MX', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
 
   const cargarHistorial = async (
     filtroActual: Filtro,
