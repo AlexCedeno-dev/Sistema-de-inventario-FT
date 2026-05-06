@@ -81,7 +81,7 @@ export function DeviceDetailsModal({
   onOpenChange,
   onUploadResponsiva,
   onDownloadResponsiva,
-  onUpdated,
+  onUpdated, 
 }: DeviceDetailsModalProps) {
   const navigate = useNavigate();
 
@@ -402,7 +402,6 @@ export function DeviceDetailsModal({
                       {device.bitlocker ? (
                         <Button size="sm" variant="outline">
                           <Download className="h-4 w-4 mr-2" />
-                          Descargar
                         </Button>
                       ) : null}
 

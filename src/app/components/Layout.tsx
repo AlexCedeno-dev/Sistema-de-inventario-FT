@@ -15,11 +15,10 @@ export function Layout() {
     { name: 'Inicio', path: '/', icon: Home },
     { name: 'Inventario Nuevo', path: '/inventory-new', icon: PackageOpen },
     { name: 'Dashboard', path: '/dashboard', icon: Monitor },
-    { name: 'Inventario ABC', path: '/inventory-abc', icon: Bolt },
-    { name: 'Historial de Entregas', path: '/historial-entregas', icon: ClipboardList },
-    { name: 'Inventario Viejo', path: '/inventory-old', icon: Package },
+    { name: 'Historial E/L', path: '/historial-entregas', icon: ClipboardList },
     { name: 'Agentes', path: '/agentes', icon: Cpu },
-    { name: 'Registrar Equipo', path: '/register', icon: PlusCircle },
+    { name: 'Inventario ABC', path: '/inventory-abc', icon: Bolt },
+    { name: 'Inventario Viejo', path: '/inventory-old', icon: Package },
   ];
 
   const handleLogout = () => {
@@ -94,7 +93,7 @@ export function Layout() {
           {isSidebarOpen ? (
             <div className="text-xs text-blue-200">
               <p>© 2026 Sistema IT</p>
-              <p>Versión 2.3.5</p>
+              <p>Versión 2.3.7</p>
             </div>
           ) : (
             <div className="h-8" />

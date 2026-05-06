@@ -173,18 +173,142 @@ interface PromptDialogProps {
   cancelText?: string;
 }
 
+  interface LiberacionDialogProps {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    device: InventoryDevice | null;
+    loading?: boolean;
+    onConfirm: (data: {
+      liberadoPor: string;
+      tipoLiberador: 'IT' | 'BECARIO';
+    }) => void;
+  }
 
-function PromptDialog({
-  open,
-  onOpenChange,
-  title,
-  description,
-  onConfirm,
-  placeholder = '',
-  confirmText = 'Aceptar',
-  cancelText = 'Cancelar',
-}: PromptDialogProps) {
-  const [value, setValue] = useState('');
+  function LiberacionDialog({
+    open,
+    onOpenChange,
+    device,
+    loading = false,
+    onConfirm,
+  }: LiberacionDialogProps) {
+    const [liberadoPor, setLiberadoPor] = useState('');
+    const [tipoLiberador, setTipoLiberador] = useState<'IT' | 'BECARIO' | ''>('');
+
+    useEffect(() => {
+      if (!open) {
+        setLiberadoPor('');
+        setTipoLiberador('');
+      }
+    }, [open]);
+
+    const puedeConfirmar =
+      liberadoPor.trim().length > 0 &&
+      tipoLiberador !== '' &&
+      !loading;
+
+    const handleSubmit = () => {
+      if (!puedeConfirmar) return;
+
+      onConfirm({
+        liberadoPor: liberadoPor.trim(),
+        tipoLiberador,
+      });
+    };
+
+    return (
+      <AlertDialog open={open} onOpenChange={onOpenChange}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3">
+              <Trash2 className="h-6 w-6 text-red-600" />
+              <AlertDialogTitle className="text-red-600">
+                Registrar liberación
+              </AlertDialogTitle>
+            </div>
+
+            <AlertDialogDescription className="pt-2">
+              Indica quién está liberando el equipo para guardar el historial.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="rounded-xl border bg-slate-50 p-3 text-sm">
+              <p>
+                <span className="font-semibold">Service Tag:</span>{' '}
+                {device?.serviceTag || 'N/A'}
+              </p>
+              <p>
+                <span className="font-semibold">Empleado:</span>{' '}
+                {device?.nombreEmpleado || 'N/A'}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">
+                Nombre de quien libera
+              </label>
+              <Input
+                value={liberadoPor}
+                onChange={(e) => setLiberadoPor(e.target.value)}
+                placeholder="Ej: Martin Romo"
+                disabled={loading}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">
+                Tipo
+              </label>
+
+              <Select
+                value={tipoLiberador}
+                onValueChange={(value) =>
+                  setTipoLiberador(value as 'IT' | 'BECARIO')
+                }
+                disabled={loading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona el tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="IT">Empleado de IT</SelectItem>
+                  <SelectItem value="BECARIO">Becario</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loading}>
+              Cancelar
+            </AlertDialogCancel>
+
+            <Button
+              type="button"
+              disabled={!puedeConfirmar}
+              onClick={handleSubmit}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {loading ? 'Liberando...' : 'Confirmar liberación'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  }
+
+
+  function PromptDialog({
+    open,
+    onOpenChange,
+    title,
+    description,
+    onConfirm,
+    placeholder = '',
+    confirmText = 'Aceptar',
+    cancelText = 'Cancelar',
+  }: PromptDialogProps) {
+    const [value, setValue] = useState('');
 
   useEffect(() => {
     if (!open) setValue('');
@@ -248,6 +372,13 @@ export function InventoryNew() {
   const [entregaDialog, setEntregaDialog] = useState<{
   open: boolean;
   device: InventoryDevice | null;
+    }>({
+      open: false,
+      device: null,
+    });
+  const [liberacionDialog, setLiberacionDialog] = useState<{
+      open: boolean;
+      device: InventoryDevice | null;
     }>({
       open: false,
       device: null,
@@ -393,45 +524,79 @@ export function InventoryNew() {
     setIsQRModalOpen(true);
   };
 
-  const handleLiberarEquipo = async (device: InventoryDevice) => {
-    if (!device.idEquipo) {
-      showAlert('Error', 'Este equipo no tiene ID válido para liberar.', 'error');
-      return;
+const handleLiberarEquipo = async (device: InventoryDevice) => {
+  if (!device.idEquipo) {
+    showAlert('Error', 'Este equipo no tiene ID válido para liberar.', 'error');
+    return;
+  }
+
+  setConfirmDialog({
+    open: true,
+    title: '¿Confirmar liberación de equipo?',
+    description: `¿Seguro que quieres liberar este equipo?\n\nService Tag: ${device.serviceTag ?? 'N/A'}\nEmpleado: ${device.nombreEmpleado ?? 'N/A'}\n\nEl equipo desaparecerá del inventario y volverá a quedar disponible en Agentes.`,
+    variant: 'destructive',
+    onConfirm: () => {
+      setLiberacionDialog({
+        open: true,
+        device,
+      });
+    },
+  });
+};
+
+const handleConfirmarLiberacion = async ({
+  liberadoPor,
+  tipoLiberador,
+}: {
+  liberadoPor: string;
+  tipoLiberador: 'IT' | 'BECARIO';
+}) => {
+  const device = liberacionDialog.device;
+
+  if (!device?.idEquipo) {
+    showAlert('Error', 'Este equipo no tiene ID válido para liberar.', 'error');
+    return;
+  }
+
+  try {
+    setLiberandoEquipoId(device.idEquipo);
+
+    const response = await fetch(`${API_BASE}/equipos/${device.idEquipo}/liberar`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        liberadoPor,
+        tipoLiberador,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'No se pudo liberar el equipo');
     }
 
-    setConfirmDialog({
-      open: true,
-      title: '¿Confirmar liberación de equipo?',
-      description: `¿Seguro que quieres liberar este equipo?\n\nService Tag: ${device.serviceTag ?? 'N/A'}\nEmpleado: ${device.nombreEmpleado ?? 'N/A'}\n\nEl equipo desaparecerá del inventario y volverá a quedar disponible en Agentes.`,
-      variant: 'destructive',
-      onConfirm: async () => {
-        try {
-          setLiberandoEquipoId(device.idEquipo);
-
-          const response = await fetch(`${API_BASE}/equipos/${device.idEquipo}/liberar`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            throw new Error(data.error || 'No se pudo liberar el equipo');
-          }
-
-          await loadInventoryNew();
-          showAlert('¡Éxito!', 'Equipo liberado correctamente', 'success');
-        } catch (error: any) {
-          console.error('Error liberando equipo:', error);
-          showAlert('Error', error.message || 'Error al liberar equipo', 'error');
-        } finally {
-          setLiberandoEquipoId(null);
-        }
-      },
+    setLiberacionDialog({
+      open: false,
+      device: null,
     });
-  };
+
+    await loadInventoryNew();
+
+    showAlert(
+      '¡Éxito!',
+      'Equipo liberado correctamente y registrado en historial.',
+      'success'
+    );
+  } catch (error: any) {
+    console.error('Error liberando equipo:', error);
+    showAlert('Error', error.message || 'Error al liberar equipo', 'error');
+  } finally {
+    setLiberandoEquipoId(null);
+  }
+};
 
   // LEGACY: flujo anterior, pendiente de eliminar cuando terminemos nuevo flujo
   const handleGenerarResponsiva = (device: InventoryDevice) => {
@@ -710,209 +875,232 @@ const handleConfirmarEntrega = async ({
 };
 
   return (
-    <div className="p-8 space-y-6">
-      {/* Header con degradado mejorado */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 rounded-2xl p-8 text-white shadow-2xl">
-        <div className="absolute inset-0 bg-black/10"></div>
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-              <PackageOpen className="h-8 w-8" />
+    <div className="min-h-screen bg-slate-50 p-4 md:p-6 lg:p-8 space-y-6">
+      {/* Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 p-6 md:p-8 text-white shadow-xl">
+        <div className="absolute inset-0 bg-black/10" />
+        <div className="absolute -right-10 -top-10 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
+        <div className="absolute -bottom-16 -left-12 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
+
+        <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="rounded-2xl bg-white/20 p-3 backdrop-blur-sm">
+                <PackageOpen className="h-8 w-8" />
+              </div>
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Inventario Nuevo</h1>
+                <p className="mt-1 text-blue-100 text-sm md:text-base">
+                  Sistema nuevo de gestión de PCs asignadas y documentación
+                </p>
+              </div>
             </div>
-            <h1 className="text-4xl font-bold">Inventario Nuevo</h1>
           </div>
-          <p className="text-white/90 text-lg font-medium">
-            Sistema nuevo de gestión de PCs asignadas y documentación
-          </p>
         </div>
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
       </div>
 
-      {/* Cards de estadísticas mejorados */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                {t('inventory.totalDevices')}
-              </CardTitle>
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Laptop className="h-5 w-5 text-blue-600" />
-              </div>
+      {/* Cards de estadísticas */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-6">
+        <Card className="border-0 rounded-2xl shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-slate-600">
+              {t('inventory.totalDevices')}
+            </CardTitle>
+            <div className="rounded-xl bg-blue-50 p-2">
+              <Laptop className="h-5 w-5 text-blue-600" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-600">{devices.length}</div>
-            <p className="text-xs text-gray-500 mt-1">Equipos registrados</p>
+            <div className="text-3xl font-bold text-slate-900">{devices.length}</div>
+            <p className="text-xs text-slate-500 mt-1">Equipos registrados</p>
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                {t('inventory.active')}
-              </CardTitle>
-              <div className="p-2 bg-green-100 rounded-lg">
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
-              </div>
+        <Card className="border-0 rounded-2xl shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-slate-600">
+              {t('inventory.active')}
+            </CardTitle>
+            <div className="rounded-xl bg-green-50 p-2">
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
             </div>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-600">
               {devices.filter((d) => d.status === 'ACTIVO').length}
             </div>
-            <p className="text-xs text-gray-500 mt-1">En uso actualmente</p>
+            <p className="text-xs text-slate-500 mt-1">En uso actualmente</p>
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                {t('inventory.signed')}
-              </CardTitle>
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <FileText className="h-5 w-5 text-purple-600" />
-              </div>
+        <Card className="border-0 rounded-2xl shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-slate-600">
+              {t('inventory.signed')}
+            </CardTitle>
+            <div className="rounded-xl bg-purple-50 p-2">
+              <FileText className="h-5 w-5 text-purple-600" />
             </div>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-purple-600">
               {devices.filter((d) => d.firmado).length}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Con documentación</p>
+            <p className="text-xs text-slate-500 mt-1">Con documentación</p>
           </CardContent>
         </Card>
 
-        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-gray-600">
-                {t('inventory.warrantyExpiring')}
-              </CardTitle>
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <Clock className="h-5 w-5 text-orange-600" />
-              </div>
+        <Card className="border-0 rounded-2xl shadow-md hover:shadow-lg transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-slate-600">
+              {t('inventory.warrantyExpiring')}
+            </CardTitle>
+            <div className="rounded-xl bg-orange-50 p-2">
+              <Clock className="h-5 w-5 text-orange-600" />
             </div>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-orange-600">{warrantyExpiring}</div>
-            <p className="text-xs text-gray-500 mt-1">{t('inventory.expiringSoon')}</p>
+            <p className="text-xs text-slate-500 mt-1">{t('inventory.expiringSoon')}</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Barra de búsqueda y filtros mejorada */}
-      <div className="flex items-center gap-4 bg-white p-4 rounded-xl shadow-md">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-          <Input
-            placeholder={t('inventory.search')}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-11 h-12 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500"
-          />
-        </div>
+      {/* Barra de búsqueda y filtros */}
+      <Card className="border-0 rounded-2xl shadow-md">
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder={t('inventory.search')}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-11 rounded-xl border-slate-200 bg-white pl-10 shadow-sm focus-visible:ring-indigo-500"
+              />
+            </div>
 
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[200px] h-12 border-gray-300">
-            <SelectValue placeholder={t('inventory.status')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('inventory.allStatus')}</SelectItem>
-            <SelectItem value="ACTIVO">ACTIVO</SelectItem>
-            <SelectItem value="Inactivo">Inactivo</SelectItem>
-          </SelectContent>
-        </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-11 w-full rounded-xl border-slate-200 bg-white shadow-sm lg:w-[220px]">
+                <SelectValue placeholder={t('inventory.status')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t('inventory.allStatus')}</SelectItem>
+                <SelectItem value="ACTIVO">ACTIVO</SelectItem>
+                <SelectItem value="Inactivo">Inactivo</SelectItem>
+              </SelectContent>
+            </Select>
 
-        <Link
-          to="/historial-entregas"
-          className="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-gray-100"
-        >
-          <ClipboardList className="h-4 w-4" />
-          Historial entregas
-        </Link>
-      </div>
+            <Link
+              to="/historial-entregas"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+            >
+              <ClipboardList className="h-4 w-4" />
+              Historial entregas
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Tabla mejorada - Parte 1 */}
-      <Card className="border-0 shadow-xl overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 border-b">
-          <CardTitle className="text-xl flex items-center gap-2">
-            <PackageOpen className="h-6 w-6 text-indigo-600" />
-            Inventario Nuevo ({filteredDevices.length} equipos)
-          </CardTitle>
+      {/* Tabla */}
+      <Card className="border-0 rounded-2xl shadow-md overflow-hidden">
+        <CardHeader className="border-b bg-white px-5 py-4">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <CardTitle className="flex items-center gap-2 text-xl">
+              <PackageOpen className="h-6 w-6 text-indigo-600" />
+              Inventario Nuevo
+            </CardTitle>
+            <Badge variant="secondary" className="w-fit rounded-full px-3 py-1">
+              {filteredDevices.length} equipos
+            </Badge>
+          </div>
         </CardHeader>
+
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gradient-to-r from-gray-100 to-gray-50 sticky top-0 z-10">
-                <tr className="border-b-2 border-gray-200">
-                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
-                    ID Equipo
+            <table className="w-full min-w-[1320px] border-collapse">
+              <thead>
+                <tr className="border-b bg-slate-100/80">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 min-w-[190px]">
+                    Equipo
                   </th>
-                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
-                    ID Empleado
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 min-w-[240px]">
+                    Empleado
                   </th>
-                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
-                    Service Tag
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 min-w-[230px]">
+                    Detalles del equipo
                   </th>
-                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
-                    Hostname
-                  </th>
-                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 min-w-[130px]">
                     {t('inventory.status')}
                   </th>
-                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
-                    {t('inventory.employee')}
-                  </th>
-                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
-                    {t('inventory.department')}
-                  </th>
-                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
-                    {t('inventory.plant')}
-                  </th>
-                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
-                    {t('inventory.type')}
-                  </th>
-                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
-                    {t('inventory.brand')}
-                  </th>
-                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
-                    {t('inventory.model')}
-                  </th>
-                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 min-w-[170px]">
                     {t('inventory.letter')}
                   </th>
-                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 min-w-[150px]">
                     BitLocker
                   </th>
-                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 min-w-[140px]">
                     {t('inventory.signed')}
                   </th>
-                  <th className="text-left py-4 px-4 font-semibold text-xs uppercase tracking-wider text-gray-700">
+                  <th className="sticky right-0 z-10 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 min-w-[330px] bg-slate-100/95 backdrop-blur">
                     {t('inventory.actions')}
                   </th>
                 </tr>
               </thead>
 
-              <tbody>
+              <tbody className="divide-y divide-slate-100 bg-white">
                 {filteredDevices.map((device, index) => (
                   <tr
                     key={`${device.id}-${index}`}
-                    className="border-b hover:bg-gradient-to-r hover:from-indigo-50/50 hover:to-purple-50/50 transition-all duration-200"
+                    className="group hover:bg-slate-50 transition-colors"
                   >
-                    <td className="py-4 px-4 font-mono text-sm font-semibold text-indigo-600">
-                      {viewValue(device.idEquipo)}
+                    <td className="px-4 py-4 align-top">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-lg bg-indigo-50 px-2 py-1 font-mono text-xs font-semibold text-indigo-700">
+                            ID Equipo: {viewValue(device.idEquipo)}
+                          </span>
+                        </div>
+                        <p className="font-mono text-sm font-semibold text-slate-900">
+                          {viewValue(device.serviceTag)}
+                        </p>
+                        <p className="font-mono text-xs text-slate-500">
+                          Hostname: {viewValue(device.hostname)}
+                        </p>
+                      </div>
                     </td>
-                    <td className="py-4 px-4 font-mono text-sm">{viewValue(device.idEmpleado)}</td>
-                    <td className="py-4 px-4 font-mono text-sm font-medium">
-                      {viewValue(device.serviceTag)}
-                    </td>
-                    <td className="py-4 px-4 font-mono text-sm">{viewValue(device.hostname)}</td>
 
-                    <td className="py-4 px-4">
+                    <td className="px-4 py-4 align-top">
+                      <div className="space-y-1.5">
+                        <p className="text-sm font-semibold text-slate-900">
+                          {viewValue(device.nombreEmpleado)}
+                        </p>
+                        <p className="font-mono text-xs text-slate-500">
+                          ID Empleado: {viewValue(device.idEmpleado)}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          <Badge variant="outline" className="rounded-full bg-slate-50 text-xs">
+                            {viewValue(device.departamento)}
+                          </Badge>
+                          <Badge variant="outline" className="rounded-full bg-slate-50 text-xs">
+                            {viewValue(device.planta)}
+                          </Badge>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-4 align-top">
+                      <div className="space-y-1.5 text-sm">
+                        <p className="font-medium text-slate-900">
+                          {viewValue(device.marca)} {viewValue(device.modelo)}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Tipo: {viewValue(device.tipo)}
+                        </p>
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-4 align-top">
                       <Badge
                         variant={
                           device.status === 'ACTIVO' || device.status === 'Activo'
@@ -921,106 +1109,102 @@ const handleConfirmarEntrega = async ({
                         }
                         className={
                           device.status === 'ACTIVO' || device.status === 'Activo'
-                            ? 'bg-green-500 hover:bg-green-600'
-                            : ''
+                            ? 'rounded-full bg-green-600 hover:bg-green-700'
+                            : 'rounded-full'
                         }
                       >
                         {viewValue(device.status)}
                       </Badge>
                     </td>
 
-                    <td className="py-4 px-4 text-sm font-medium">
-                      {viewValue(device.nombreEmpleado)}
-                    </td>
-                    <td className="py-4 px-4 text-sm">{viewValue(device.departamento)}</td>
-                    <td className="py-4 px-4 text-sm">{viewValue(device.planta)}</td>
-                    <td className="py-4 px-4 text-sm">{viewValue(device.tipo)}</td>
-                    <td className="py-4 px-4 text-sm">{viewValue(device.marca)}</td>
-                    <td className="py-4 px-4 text-sm">{viewValue(device.modelo)}</td>
-
-                    <td className="py-4 px-4">
-                      <div className="flex gap-2 items-center">
+                    <td className="px-4 py-4 align-top">
+                      <div className="flex flex-col gap-2">
                         {device.cartaResponsiva ? (
                           <>
+                            <div className="inline-flex w-fit items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Firmada
+                            </div>
                             <Button
                               size="sm"
-                              variant="ghost"
-                              className="h-9 w-9 p-0 hover:bg-green-100"
+                              variant="outline"
+                              className="h-8 w-fit rounded-lg border-green-200 text-green-700 hover:bg-green-50"
                               onClick={() => handleDescargarResponsiva(device)}
                               title="Descargar responsiva"
                             >
-                              <Download className="h-4 w-4 text-green-600" />
+                              <Download className="h-3.5 w-3.5 mr-1" />
+                              Descargar
                             </Button>
-                            <div className="flex items-center gap-1 bg-green-100 px-2 py-1 rounded-full">
-                              <CheckCircle2 className="h-4 w-4 text-green-600" />
-                              <span className="text-xs font-semibold text-green-700">Firmada</span>
-                            </div>
                           </>
                         ) : (
-                            <div className="flex items-center gap-1 bg-red-100 px-2 py-1 rounded-full">
-                              <XCircle className="h-4 w-4 text-red-600" />
-                              <span className="text-xs font-semibold text-red-700">Pendiente</span>
-                            </div>
+                          <div className="inline-flex w-fit items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
+                            <XCircle className="h-3.5 w-3.5" />
+                            Pendiente
+                          </div>
                         )}
                       </div>
                     </td>
 
-                    <td className="py-4 px-4">
-                      <div className="flex gap-2 items-center">
+                    <td className="px-4 py-4 align-top">
+                      <div className="flex flex-col gap-2">
                         {device.bitlocker ? (
                           <>
+                            <div className="inline-flex w-fit items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Cargado
+                            </div>
                             <Button
                               size="sm"
-                              variant="ghost"
-                              className="h-9 w-9 p-0 hover:bg-green-100"
+                              variant="outline"
+                              className="h-8 w-fit rounded-lg border-green-200 text-green-700 hover:bg-green-50"
                               onClick={() => handleDescargarBitlocker(device)}
                             >
-                              <Download className="h-4 w-4 text-green-600" />
+                              <Download className="h-3.5 w-3.5 mr-1" />
+                              Descargar
                             </Button>
-                            <div className="flex items-center gap-1 bg-green-100 px-2 py-1 rounded-full">
-                              <CheckCircle2 className="h-4 w-4 text-green-600" />
-                            </div>
                           </>
                         ) : (
                           <>
+                            <div className="inline-flex w-fit items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                              <XCircle className="h-3.5 w-3.5" />
+                              Sin archivo
+                            </div>
                             <Button
                               size="sm"
-                              variant="ghost"
-                              className="h-9 w-9 p-0 hover:bg-blue-100"
+                              variant="outline"
+                              className="h-8 w-fit rounded-lg border-blue-200 text-blue-700 hover:bg-blue-50"
                               onClick={() => handleSubirBitlocker(device)}
                             >
-                              <Upload className="h-4 w-4 text-blue-600" />
+                              <Upload className="h-3.5 w-3.5 mr-1" />
+                              Subir
                             </Button>
-                            <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 rounded-full">
-                              <XCircle className="h-4 w-4 text-gray-500" />
-                            </div>
                           </>
                         )}
                       </div>
                     </td>
 
-                    <td className="py-4 px-4">
-                        {device.firmado ? (
-                          <Badge
-                            variant="default"
-                            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
-                          >
-                            <FileCheck className="h-3 w-3 mr-1" />
-                            Firmado
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary">
-                            Pendiente
-                          </Badge>
-                        )}
+                    <td className="px-4 py-4 align-top">
+                      {device.firmado ? (
+                        <Badge
+                          variant="default"
+                          className="rounded-full bg-green-600 hover:bg-green-700"
+                        >
+                          <FileCheck className="h-3 w-3 mr-1" />
+                          Firmado
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="rounded-full">
+                          Pendiente
+                        </Badge>
+                      )}
                     </td>
 
-                    <td className="py-4 px-4">
-                      <div className="flex gap-2 flex-wrap">
+                    <td className="sticky right-0 bg-white px-4 py-4 align-top shadow-[-12px_0_16px_-18px_rgba(15,23,42,0.6)] group-hover:bg-slate-50">
+                      <div className="grid grid-cols-2 gap-2">
                         <Button
                           size="sm"
                           variant="outline"
-                          className="border-blue-300 text-blue-600 hover:bg-blue-50"
+                          className="h-9 rounded-lg border-blue-200 text-blue-700 hover:bg-blue-50"
                           onClick={() => handleViewDetails(device)}
                         >
                           <Eye className="h-4 w-4 mr-1" />
@@ -1030,31 +1214,31 @@ const handleConfirmarEntrega = async ({
                         <Button
                           size="sm"
                           variant="outline"
-                          className="border-purple-300 text-purple-600 hover:bg-purple-50"
+                          className="h-9 rounded-lg border-purple-200 text-purple-700 hover:bg-purple-50"
                           onClick={() => handleGenerateQR(device)}
                         >
                           <QrCode className="h-4 w-4 mr-1" />
                           QR
                         </Button>
 
-                          {!device.firmado && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="border-green-300 text-green-600 hover:bg-green-50"
-                              onClick={() => setEntregaDialog({ open: true, device })}
-                            >
-                              <FileText className="h-4 w-4 mr-1" />
-                              Generar documento
-                            </Button>
-                          )}
+                        {!device.firmado && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="col-span-2 h-9 rounded-lg border-green-200 text-green-700 hover:bg-green-50"
+                            onClick={() => setEntregaDialog({ open: true, device })}
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            Generar documento
+                          </Button>
+                        )}
 
                         <Button
                           size="sm"
                           variant="destructive"
                           disabled={!device.idEquipo || liberandoEquipoId === device.idEquipo}
                           onClick={() => handleLiberarEquipo(device)}
-                          className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
+                          className="col-span-2 h-9 rounded-lg bg-red-600 hover:bg-red-700"
                         >
                           <Trash2 className="h-4 w-4 mr-1" />
                           {liberandoEquipoId === device.idEquipo ? 'Liberando...' : 'Liberar'}
@@ -1068,11 +1252,13 @@ const handleConfirmarEntrega = async ({
           </div>
 
           {filteredDevices.length === 0 && (
-            <div className="text-center py-16">
-              <PackageOpen className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 text-lg font-medium">{t('inventory.noResults')}</p>
-              <p className="text-gray-400 text-sm mt-2">
-                Intenta ajustar los filtros de búsqueda
+            <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+              <div className="rounded-full bg-slate-100 p-4 mb-4">
+                <PackageOpen className="h-12 w-12 text-slate-300" />
+              </div>
+              <p className="text-slate-600 text-lg font-semibold">{t('inventory.noResults')}</p>
+              <p className="text-slate-400 text-sm mt-2">
+                Intenta ajustar la búsqueda o el filtro seleccionado.
               </p>
             </div>
           )}
@@ -1085,29 +1271,29 @@ const handleConfirmarEntrega = async ({
         open={isDetailsModalOpen}
         onOpenChange={setIsDetailsModalOpen}
         onUpdated={(deviceActualizado) => {
-            setDevices((prev) =>
-              prev.map((d) =>
-                d.idEquipo === deviceActualizado.idEquipo
-                  ? { ...d, ...deviceActualizado }
-                  : d
-              )
-            );
+          setDevices((prev) =>
+            prev.map((d) =>
+              d.idEquipo === deviceActualizado.idEquipo
+                ? { ...d, ...deviceActualizado }
+                : d
+            )
+          );
 
-            setSelectedDevice((prev) =>
-              prev?.idEquipo === deviceActualizado.idEquipo
-                ? { ...prev, ...deviceActualizado }
-                : prev
-            );
+          setSelectedDevice((prev) =>
+            prev?.idEquipo === deviceActualizado.idEquipo
+              ? { ...prev, ...deviceActualizado }
+              : prev
+          );
 
-            setQRDevice((prev) =>
-              prev?.idEquipo === deviceActualizado.idEquipo
-                ? { ...prev, ...deviceActualizado }
-                : prev
-            );
+          setQRDevice((prev) =>
+            prev?.idEquipo === deviceActualizado.idEquipo
+              ? { ...prev, ...deviceActualizado }
+              : prev
+          );
 
-            loadInventoryNew();
-          }}
-                  onUploadResponsiva={handleSubirResponsivaFirmada}
+          loadInventoryNew();
+        }}
+        onUploadResponsiva={handleSubirResponsivaFirmada}
         onDownloadResponsiva={handleDescargarResponsiva}
       />
 
@@ -1141,72 +1327,58 @@ const handleConfirmarEntrega = async ({
       />
 
       <EntregaDialog
-          open={entregaDialog.open}
-          onOpenChange={(open) =>
-            setEntregaDialog((prev) => ({
-              open,
-              device: open ? prev.device : null,
-            }))
-          }
-          onConfirm={handleConfirmarEntrega}
-        />
+        open={entregaDialog.open}
+        onOpenChange={(open) =>
+          setEntregaDialog((prev) => ({
+            open,
+            device: open ? prev.device : null,
+          }))
+        }
+        onConfirm={handleConfirmarEntrega}
+      />
+
+      <LiberacionDialog
+        open={liberacionDialog.open}
+        onOpenChange={(open) =>
+          setLiberacionDialog((prev) => ({
+            open,
+            device: open ? prev.device : null,
+          }))
+        }
+        device={liberacionDialog.device}
+        loading={!!liberandoEquipoId}
+        onConfirm={handleConfirmarLiberacion}
+      />
 
       <SignatureModal
-          open={isSignatureOpen}
-          onOpenChange={setIsSignatureOpen}
-          onSave={handleGuardarFirmaDigital}
-        />
+        open={isSignatureOpen}
+        onOpenChange={setIsSignatureOpen}
+        onSave={handleGuardarFirmaDigital}
+      />
 
-        {qrOpen && (
-        <div className=" fixed inset-0 bg-black/50 flex items-centerjustify-center z-50">
+      {qrOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
+            <h3 className="mb-4 text-lg font-bold text-slate-900">Escanea para firmar</h3>
 
-        <div className="
-        bg-white
-        p-6
-        rounded-xl
-        shadow-xl
-        text-center
-        max-w-sm
-        ">
-
-        <h3 className="
-        font-bold mb-4
-        ">
-        Escanea para firmar
-        </h3>
-
-        <div className="
-        bg-white
-        p-4
-        inline-block
-        ">
-        <QRCode
-        value={firmaLink}
-        size={220}
-        />
-        </div>
-
-        <p className="
-        text-xs mt-4 break-all
-        ">
-        {firmaLink}
-        </p>
-
-        <button
-        onClick={()=>setQrOpen(false)}
-        className="
-        mt-5
-        px-4 py-2
-        bg-blue-700
-        text-white rounded
-        "
-        >
-        Cerrar
-        </button>
-
-        </div>
-        </div>
-        )}
+            <div className="inline-block rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+              <QRCode value={firmaLink} size={220} />
             </div>
-          );
-        }
+
+            <p className="mt-4 break-all rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
+              {firmaLink}
+            </p>
+
+            <Button
+              type="button"
+              onClick={() => setQrOpen(false)}
+              className="mt-5 w-full rounded-xl bg-blue-700 text-white hover:bg-blue-800"
+            >
+              Cerrar
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

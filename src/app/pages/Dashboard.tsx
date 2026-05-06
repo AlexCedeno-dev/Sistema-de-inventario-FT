@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -61,9 +61,13 @@ export function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [error, setError] = useState('');
+  const loadingRef = useRef(false);
 
   const loadDevices = async () => {
+    if (loadingRef.current) return;
+
     try {
+      loadingRef.current = true;
       setLoading(true);
       setError('');
 
@@ -85,17 +89,18 @@ export function Dashboard() {
       console.error('Error cargando dashboard-monitoreo:', err);
       setError(err instanceof Error ? err.message : 'Error cargando dashboard');
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadDevices();
+      useEffect(() => {
+        loadDevices();
 
-    const interval = setInterval(loadDevices, 5000);
+        const interval = setInterval(loadDevices, 30000);
 
-    return () => clearInterval(interval);
-  }, []);
+        return () => clearInterval(interval);
+      }, []);
 
   const onlineDevices = useMemo(
     () => devices.filter((d) => d.estado?.includes('Online')),

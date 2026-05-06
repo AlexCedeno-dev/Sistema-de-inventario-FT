@@ -13,7 +13,7 @@ type EquipoQR = {
   modelo: string | null;
   permiso_salida: 'AUTORIZADO' | 'NO_AUTORIZADO';
   estado_registro: string | null;
-  fecha_asig: string | null;
+  fecha_alta_equipo: string | null;
 };
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -74,8 +74,8 @@ export function ValidarEquipoQR() {
 
   const autorizado = equipo.permiso_salida === 'AUTORIZADO';
 
-  const fechaAsignacion = equipo.fecha_asig
-    ? new Date(equipo.fecha_asig).toLocaleDateString('es-MX')
+  const fechaAltaEquipo = equipo.fecha_alta_equipo
+    ? new Date(equipo.fecha_alta_equipo).toLocaleDateString('es-MX')
     : 'Sin fecha';
 
   return (
@@ -102,7 +102,7 @@ export function ValidarEquipoQR() {
           <Info icon={<Laptop />} label="Tipo de equipo" value={equipo.tipo || 'Sin tipo'} />
           <Info icon={<Laptop />} label="Modelo" value={`${equipo.marca || ''} ${equipo.modelo || ''}`.trim() || 'Sin modelo'} />
           <Info icon={<CheckCircle />} label="Estado del equipo" value={equipo.estado_registro || 'Sin estado'} />
-          <Info icon={<CalendarDays />} label="Fecha de asignación" value={fechaAsignacion} />
+          <Info icon={<CalendarDays />} label="Fecha de alta del equipo" value={fechaAltaEquipo} />
         </div>
 
         <div className="p-4 bg-gray-50 text-center text-sm text-gray-500">
