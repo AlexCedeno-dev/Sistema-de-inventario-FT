@@ -1,7 +1,8 @@
 node_modules/
 dist/
 .env
-.envlocal
-vite.config.ts
+.env.local
 .vscode/
 *.log
+vite.config.ts
+.env.local

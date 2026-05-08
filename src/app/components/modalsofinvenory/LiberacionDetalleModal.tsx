@@ -270,10 +270,27 @@ export function LiberacionDetalleModal({
                 <InfoItem label="Hostname detectado" value={detalle.equipo_hostname_detectado} copy />
                 <InfoItem label="Specs" value={detalle.equipo_specs} />
                 <InfoItem label="BIOS Password" value={detalle.bios_password} copy />
-                <InfoItem label="Fecha compra"value={formatearFechaCortaMX(detalle.equipo_fecha_compra)} />
-                <InfoItem label="Fecha asignación" value={formatearFechaCortaMX(detalle.equipo_fecha_compra)} />
-                <InfoItem label="Inicio garantía" value={formatearFechaCortaMX(detalle.equipo_fecha_compra)} />
-                <InfoItem label="Fin garantía" value={formatearFechaCortaMX(detalle.equipo_fecha_compra)} />
+                <InfoItem
+                  label="Fecha compra"
+                  value={formatearFechaCortaMX(detalle.equipo_fecha_compra)}
+                />
+
+                <InfoItem
+                  label="Fecha asignación"
+                  value={formatearFechaCortaMX(detalle.equipo_fecha_asig)}
+                />
+
+                <InfoItem
+                  label="Inicio garantía"
+                  value={formatearFechaCortaMX(detalle.equipo_start_warranty)}
+                />
+
+                <InfoItem
+                  label="Fin garantía"
+                  value={formatearFechaCortaMX(detalle.equipo_end_warranty)}
+                />
+
+                <InfoItem label="Fecha alta equipo"value={formatearFechaMX(detalle.equipo_fecha_alta_equipo)}/>
                 <InfoItem label="Fecha liberación" value={formatearFechaCortaMX(detalle.equipo_fecha_compra)}/>
                 <InfoItem label="Permiso salida" value={detalle.equipo_permiso_salida === 1 ? 'Sí' : 'No'} />
                 <InfoItem label="Estado anterior" value={detalle.equipo_estado_registro_anterior} />
