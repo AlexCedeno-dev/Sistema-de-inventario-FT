@@ -183,6 +183,24 @@ export function Agentes() {
     );
   };
 
+    const formatearUltimaConexion = (fecha: string | null) => {
+    if (!fecha) return 'N/A';
+
+    const date = new Date(fecha);
+
+    if (isNaN(date.getTime())) return 'N/A';
+
+    return date.toLocaleString('es-MX', {
+      timeZone: 'America/Mexico_City',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
   return (
     <div className="p-6 md:p-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
@@ -337,7 +355,7 @@ export function Agentes() {
                     <td className="px-4 py-3 text-gray-700">
                       {[agente.marca, agente.modelo].filter(Boolean).join(' ') || 'N/A'}
                     </td>
-                    <td className="px-4 py-3 text-gray-700">{agente.last_seen || 'N/A'}</td>
+                    <td className="px-4 py-3 text-gray-700">{formatearUltimaConexion(agente.last_seen)}</td>
                     <td className="px-4 py-3">
                       <span
                         className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getEstadoBadge(
