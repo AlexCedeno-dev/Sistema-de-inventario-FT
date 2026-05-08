@@ -8,6 +8,7 @@ import {
   Wrench,
   ShieldAlert,
   Clock3,
+  Search,
 } from 'lucide-react';
 import { getAgentesDetectados, type AgenteDetectado } from '../services/agents';
 
@@ -56,6 +57,7 @@ export function Agentes() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [serviceTagSearch, setServiceTagSearch] = useState('');
 
     const cargarAgentes = async (showLoader = true) => {
     try {
@@ -141,7 +143,15 @@ export function Agentes() {
     }
   };
 
-  const agentes = getTabItems();
+  const agentesBase = getTabItems();
+
+  const agentes = agentesBase.filter((agente) => {
+    const term = serviceTagSearch.trim().toLowerCase();
+
+    if (!term) return true;
+
+    return (agente.service_tag || '').toLowerCase().includes(term);
+  });
 
   const renderEmptyState = () => {
     const config = {
@@ -242,6 +252,7 @@ export function Agentes() {
         </button>
       </div>
 
+
       <div className="mb-4 flex items-center gap-2">
         {activeTab === 'pendientes' && (
           <>
@@ -263,6 +274,20 @@ export function Agentes() {
         )}
       </div>
 
+      <div className="mb-4 max-w-md">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+
+          <input
+            type="text"
+            value={serviceTagSearch}
+            onChange={(e) => setServiceTagSearch(e.target.value)}
+            placeholder="Buscar por Service Tag..."
+            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+          />
+        </div>
+      </div>
+
       {loading ? (
         <div className="rounded-xl bg-white p-8 shadow-sm border border-gray-200">
           <p className="text-gray-600">Cargando agentes detectados...</p>
@@ -273,7 +298,19 @@ export function Agentes() {
           <span>{error}</span>
         </div>
       ) : agentes.length === 0 ? (
-        renderEmptyState()
+        serviceTagSearch.trim() ? (
+          <div className="rounded-xl bg-white p-10 shadow-sm border border-gray-200 text-center">
+            <Search className="h-10 w-10 mx-auto text-gray-400 mb-3" />
+            <h2 className="text-lg font-semibold text-gray-800">
+              No se encontró ese Service Tag
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Intenta escribir otro Service Tag o limpia el buscador.
+            </p>
+          </div>
+        ) : (
+          renderEmptyState()
+        )
       ) : (
         <div className="rounded-xl bg-white shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-auto">
