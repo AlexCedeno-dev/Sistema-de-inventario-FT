@@ -10,7 +10,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-
+import { formatearFechaMX, formatearFechaCortaMX } from '../../utils/fecha';
 import { Button } from '../ui/button';
 
 import {
@@ -164,22 +164,6 @@ export function LiberacionDetalleModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const formatearFecha = (fecha?: string | null) => {
-    if (!fecha) return 'N/A';
-
-    const date = new Date(fecha);
-
-    if (isNaN(date.getTime())) return fecha;
-
-    return date.toLocaleString('es-MX', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  };
 
   useEffect(() => {
     if (!open || !historialLiberacionId) {
@@ -255,7 +239,7 @@ export function LiberacionDetalleModal({
                 title="Datos de liberación"
                 icon={<ShieldCheck className="h-5 w-5 text-red-600" />}
               >
-                <InfoItem label="Fecha liberación" value={formatearFecha(detalle.fecha_liberacion)} />
+                <InfoItem label="Fecha liberación" value={formatearFechaMX(detalle.fecha_liberacion)}/>
                 <InfoItem label="Estado" value={detalle.estado || 'LIBERADO'} />
                 <InfoItem label="Liberado por" value={detalle.liberado_por} />
                 <InfoItem label="Tipo liberador" value={detalle.tipo_liberador} />
@@ -286,11 +270,11 @@ export function LiberacionDetalleModal({
                 <InfoItem label="Hostname detectado" value={detalle.equipo_hostname_detectado} copy />
                 <InfoItem label="Specs" value={detalle.equipo_specs} />
                 <InfoItem label="BIOS Password" value={detalle.bios_password} copy />
-                <InfoItem label="Fecha compra" value={detalle.equipo_fecha_compra} />
-                <InfoItem label="Fecha asignación" value={detalle.equipo_fecha_asig} />
-                <InfoItem label="Inicio garantía" value={detalle.equipo_start_warranty} />
-                <InfoItem label="Fin garantía" value={detalle.equipo_end_warranty} />
-                <InfoItem label="Fecha alta equipo" value={formatearFecha(detalle.equipo_fecha_alta_equipo)} />
+                <InfoItem label="Fecha compra"value={formatearFechaCortaMX(detalle.equipo_fecha_compra)} />
+                <InfoItem label="Fecha asignación" value={formatearFechaCortaMX(detalle.equipo_fecha_compra)} />
+                <InfoItem label="Inicio garantía" value={formatearFechaCortaMX(detalle.equipo_fecha_compra)} />
+                <InfoItem label="Fin garantía" value={formatearFechaCortaMX(detalle.equipo_fecha_compra)} />
+                <InfoItem label="Fecha liberación" value={formatearFechaCortaMX(detalle.equipo_fecha_compra)}/>
                 <InfoItem label="Permiso salida" value={detalle.equipo_permiso_salida === 1 ? 'Sí' : 'No'} />
                 <InfoItem label="Estado anterior" value={detalle.equipo_estado_registro_anterior} />
               </Section>

@@ -1,5 +1,6 @@
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { formatearFechaCortaMX } from '../utils/fecha';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import {
@@ -277,7 +278,7 @@ export function DeviceDetailsModal({
 
             <TabsContent value="garantia" className="space-y-4 animate-in fade-in duration-300">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <DetailItem label="Fin de Garantía" value={device.finGarantia} icon={Calendar} />
+                <DetailItem label="Fin de Garantía" value={formatearFechaCortaMX(detalle?.end_warranty ?? device.finGarantia)}icon={Calendar}/>
               </div>
             </TabsContent>
 
