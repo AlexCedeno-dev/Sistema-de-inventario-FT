@@ -1,5 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Search, Eye } from 'lucide-react';
+
 import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { LiberacionDetalleModal } from '../components/modalsofinvenory/LiberacionDetalleModal';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3006';
 
@@ -33,28 +37,35 @@ export function HistorialEntregas() {
     useState<TipoHistorial>('entregas');
 
   const [filtro, setFiltro] = useState<Filtro>('hoy');
-  const [data, setData] = useState<(EntregaHistorial | LiberacionHistorial)[]>(
-    []
-  );
-
+  const [data, setData] = useState<(EntregaHistorial | LiberacionHistorial)[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const formatearFecha = (fecha: string) => {
-  if (!fecha) return 'N/A';
+  const [busqueda, setBusqueda] = useState('');
 
-  const date = new Date(fecha);
-
-  if (isNaN(date.getTime())) return 'N/A';
-
-  return date.toLocaleString('es-MX', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
+  const [detalleLiberacion, setDetalleLiberacion] = useState<{
+    open: boolean;
+    historialLiberacionId: number | null;
+  }>({
+    open: false,
+    historialLiberacionId: null,
   });
-};
+
+  const formatearFecha = (fecha: string) => {
+    if (!fecha) return 'N/A';
+
+    const date = new Date(fecha);
+
+    if (isNaN(date.getTime())) return 'N/A';
+
+    return date.toLocaleString('es-MX', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
 
   const cargarHistorial = async (
     filtroActual: Filtro,
@@ -68,9 +79,7 @@ export function HistorialEntregas() {
           ? '/entregas-historial'
           : '/liberaciones-historial';
 
-      const res = await fetch(
-        `${API_BASE}${endpoint}?filtro=${filtroActual}`
-      );
+      const res = await fetch(`${API_BASE}${endpoint}?filtro=${filtroActual}`);
 
       const json = await res.json();
 
@@ -91,6 +100,40 @@ export function HistorialEntregas() {
     cargarHistorial(filtro, tipoHistorial);
   }, [filtro, tipoHistorial]);
 
+  useEffect(() => {
+    setBusqueda('');
+  }, [tipoHistorial, filtro]);
+
+  const dataFiltrada = useMemo(() => {
+    const term = busqueda.trim().toLowerCase();
+
+    if (!term) return data;
+
+    return data.filter((row) => {
+      if (tipoHistorial === 'entregas') {
+        const item = row as EntregaHistorial;
+
+        return (
+          (item.service_tag || '').toLowerCase().includes(term) ||
+          (item.nombre_completo || '').toLowerCase().includes(term) ||
+          (item.entregado_por || '').toLowerCase().includes(term) ||
+          (item.tipo_entregador || '').toLowerCase().includes(term) ||
+          (item.estado || '').toLowerCase().includes(term)
+        );
+      }
+
+      const item = row as LiberacionHistorial;
+
+      return (
+        (item.service_tag || '').toLowerCase().includes(term) ||
+        (item.empleado_nombre || '').toLowerCase().includes(term) ||
+        (item.liberado_por || '').toLowerCase().includes(term) ||
+        (item.tipo_liberador || '').toLowerCase().includes(term) ||
+        (item.estado || '').toLowerCase().includes(term)
+      );
+    });
+  }, [data, busqueda, tipoHistorial]);
+
   const titulo =
     tipoHistorial === 'entregas'
       ? 'Historial de entregas'
@@ -99,7 +142,7 @@ export function HistorialEntregas() {
   const descripcion =
     tipoHistorial === 'entregas'
       ? 'Consulta quién entregó cada equipo y cuándo fue firmado.'
-      : 'Consulta cuándo se liberó un equipo y quién realizó la liberación.';
+      : 'Consulta cuándo se liberó un equipo, quién realizó la liberación y el detalle guardado.';
 
   return (
     <div className="p-6 space-y-6">
@@ -147,6 +190,21 @@ export function HistorialEntregas() {
         </Button>
       </div>
 
+      <div className="relative max-w-xl">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+
+        <Input
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder={
+            tipoHistorial === 'entregas'
+              ? 'Buscar por Service Tag, usuario o quien entregó...'
+              : 'Buscar por Service Tag, empleado o quien liberó...'
+          }
+          className="pl-10"
+        />
+      </div>
+
       <div className="border rounded-lg overflow-hidden bg-white">
         <table className="w-full text-sm">
           {tipoHistorial === 'entregas' ? (
@@ -170,14 +228,14 @@ export function HistorialEntregas() {
                       Cargando...
                     </td>
                   </tr>
-                ) : data.length === 0 ? (
+                ) : dataFiltrada.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="p-4 text-center text-gray-500">
                       No hay entregas registradas.
                     </td>
                   </tr>
                 ) : (
-                  data.map((row, index) => {
+                  dataFiltrada.map((row, index) => {
                     const item = row as EntregaHistorial;
 
                     return (
@@ -230,24 +288,25 @@ export function HistorialEntregas() {
                   <th className="text-left p-3">Liberó</th>
                   <th className="text-left p-3">Tipo</th>
                   <th className="text-left p-3">Estado</th>
+                  <th className="text-left p-3">Detalle</th>
                 </tr>
               </thead>
 
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="p-4 text-center text-gray-500">
+                    <td colSpan={7} className="p-4 text-center text-gray-500">
                       Cargando...
                     </td>
                   </tr>
-                ) : data.length === 0 ? (
+                ) : dataFiltrada.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-4 text-center text-gray-500">
+                    <td colSpan={7} className="p-4 text-center text-gray-500">
                       No hay liberaciones registradas.
                     </td>
                   </tr>
                 ) : (
-                  data.map((row, index) => {
+                  dataFiltrada.map((row, index) => {
                     const item = row as LiberacionHistorial;
 
                     return (
@@ -276,6 +335,23 @@ export function HistorialEntregas() {
                             {item.estado || 'LIBERADO'}
                           </span>
                         </td>
+
+                        <td className="p-3">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              setDetalleLiberacion({
+                                open: true,
+                                historialLiberacionId:
+                                  item.historial_liberacion_id,
+                              })
+                            }
+                          >
+                            <Eye className="mr-1 h-4 w-4" />
+                            Ver detalle
+                          </Button>
+                        </td>
                       </tr>
                     );
                   })
@@ -285,6 +361,17 @@ export function HistorialEntregas() {
           )}
         </table>
       </div>
+
+      <LiberacionDetalleModal
+        open={detalleLiberacion.open}
+        onOpenChange={(open) =>
+          setDetalleLiberacion((prev) => ({
+            open,
+            historialLiberacionId: open ? prev.historialLiberacionId : null,
+          }))
+        }
+        historialLiberacionId={detalleLiberacion.historialLiberacionId}
+      />
     </div>
   );
 }
