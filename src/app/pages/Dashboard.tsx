@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
+import { useSearchParams } from 'react-router';
 import { MonitoringDetailsModal } from '../components/MonitoringDetailsModal';
 import {
   Monitor,
@@ -54,6 +55,7 @@ function formatDate(value: string | null | undefined) {
 }
 
 export function Dashboard() {
+  const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [devices, setDevices] = useState<MonitoringDevice[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<MonitoringDevice | null>(null);
@@ -101,6 +103,20 @@ export function Dashboard() {
 
         return () => clearInterval(interval);
       }, []);
+
+      useEffect(() => {
+          const serviceTag = searchParams.get('service_tag');
+          const deviceId = searchParams.get('device_id');
+          const hostname = searchParams.get('hostname');
+
+          if (serviceTag) {
+            setSearchTerm(serviceTag);
+          } else if (deviceId) {
+            setSearchTerm(deviceId);
+          } else if (hostname) {
+            setSearchTerm(hostname);
+          }
+        }, [searchParams]);
 
   const onlineDevices = useMemo(
     () => devices.filter((d) => d.estado?.includes('Online')),

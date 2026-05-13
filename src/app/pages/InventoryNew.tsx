@@ -7,6 +7,7 @@ import { DeviceDetailsModal, type InventoryDeviceModal } from '../components/Dev
 import { SignatureModal } from '../components/SignatureModal';
 import { QRModal } from '../components/QRModal';
 import QRCode from 'react-qr-code';
+import { useSearchParams } from 'react-router';
 import { EntregaDialog } from '../components/modalsofinvenory/EntregaDialog';
 import {
   Search,
@@ -354,7 +355,7 @@ interface PromptDialogProps {
 
 export function InventoryNew() {
   const { t } = useLanguage();
-
+  const [searchParams] = useSearchParams();
   const [devices, setDevices] = useState<InventoryDevice[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -483,6 +484,17 @@ export function InventoryNew() {
   useEffect(() => {
     loadInventoryNew();
   }, []);
+
+      useEffect(() => {
+      const serviceTag = searchParams.get('service_tag');
+      const hostname = searchParams.get('hostname');
+
+      if (serviceTag) {
+        setSearchTerm(serviceTag);
+      } else if (hostname) {
+        setSearchTerm(hostname);
+      }
+    }, [searchParams]);
 
   const warrantyExpiring = devices.filter((device) => {
     if (!device.finGarantia) return false;

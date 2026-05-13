@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import {
@@ -10,216 +11,150 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 
-type MonitoringDevice = {
-  hostname: string | null;
-  ip: string | null;
-  mac: string | null;
-  usuario: string | null;
-  empleado: string | null;
-  serviceTag: string | null;
-  idEmpleado: string | null;
-  departamento: string | null;
-  plataforma: string | null;
-  tipoSistema: string | null;
-  uptime: number | null;
-  ubicacion: string | null;
-  fecha: string | null;
-  lastSeen: string | null;
-  estado: string | null;
-  cpu: {
-    modelo: string | null;
-    nucleos: number | null;
-    velocidad_mhz: number | null;
-    temperatura: number | null;
-  };
-  ram: {
-    totalGB: number | null;
-    libreGB: number | null;
-    usoGB: number | null;
-    porcentaje: number | null;
-  };
-  discos: {
-    disco: string | null;
-    tamañoGB: number | null;
-    usadoGB: number | null;
-    porcentaje: number | null;
-  }[];
-  sistema: {
-    edicion: string | null;
-    version: string | null;
-    instalado: string | null;
-    build: string | null;
-    especificacion: string | null;
-    idDispositivo: string | null;
-    idProducto: string | null;
-  };
-  inventario: {
-    status: string | null;
-    nombre_completo: string | null;
-    empleado_id: string | null;
-    departamento: string | null;
-    service_tag: string | null;
-  } | null;
-};
+import HomeAlertasModal from '../components/home/HomeAlertasModal';
+import {
+  getHomeActividad,
+  getHomeAlertas,
+  getHomeRecientes,
+  getHomeResumen,
+} from '../services/home.service';
+
+import type {
+  HomeActividad,
+  HomeAlerta,
+  HomeReciente,
+  HomeResumen,
+} from '../../types/home.types';
 
 export function Home() {
-const [devices, setDevices] = useState<MonitoringDevice[]>([]);
+  const navigate = useNavigate();
 
-  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3006';
+  const [resumen, setResumen] = useState<HomeResumen | null>(null);
+  const [actividad, setActividad] = useState<HomeActividad | null>(null);
+  const [recientes, setRecientes] = useState<HomeReciente[]>([]);
+  const [alertas, setAlertas] = useState<HomeAlerta[]>([]);
 
-  const normalizarTag = (value: any) =>
-    String(value ?? '')
-      .trim()
-      .toUpperCase();
+  const [loadingHome, setLoadingHome] = useState(false);
+  const [loadingAlertas, setLoadingAlertas] = useState(false);
+  const [modalAlertasOpen, setModalAlertasOpen] = useState(false);
+  
+  
+
+  async function cargarHome() {
+    try {
+      setLoadingHome(true);
+
+      const [resumenData, actividadData, recientesData] = await Promise.all([
+        getHomeResumen(),
+        getHomeActividad(),
+        getHomeRecientes(),
+      ]);
+
+      setResumen(resumenData);
+      setActividad(actividadData);
+      setRecientes(recientesData);
+    } catch (error) {
+      console.error('Error cargando datos del Home:', error);
+    } finally {
+      setLoadingHome(false);
+    }
+  }
+
+  async function abrirModalAlertas() {
+    try {
+      setModalAlertasOpen(true);
+      setLoadingAlertas(true);
+
+      const data = await getHomeAlertas();
+      setAlertas(data);
+    } catch (error) {
+      console.error('Error cargando alertas:', error);
+    } finally {
+      setLoadingAlertas(false);
+    }
+  }
 
   useEffect(() => {
-    const loadDevices = async () => {
-      try {
-        const [equiposRes, identificadosRes] = await Promise.all([
-          fetch(`${API_BASE}/equipos-local`),
-          fetch(`${API_BASE}/equipos-identificados-local`),
-        ]);
+    cargarHome();
 
-        const equipos = await equiposRes.json();
-        const identificados = await identificadosRes.json();
+    const interval = setInterval(() => {
+      cargarHome();
+    }, 30000);
 
-        const mapaIdentificados = new Map();
+    return () => clearInterval(interval);
+  }, []);
 
-        identificados.forEach((item: any) => {
-          const tag = normalizarTag(
-            item?.inventario?.service_tag ?? item?.sistema?.idDispositivo
-          );
+  const totalEquipos = resumen?.totales.totalEquipos ?? 0;
+  const equiposOnline = resumen?.totales.equiposOnline ?? 0;
+  const inventarioActivo = resumen?.totales.inventarioActivo ?? 0;
+  const alertasCriticas = resumen?.totales.alertasCriticas ?? 0;
+  const disponibilidad = resumen?.totales.disponibilidad ?? 0;
 
-          if (tag) {
-            mapaIdentificados.set(tag, item);
-          }
-        });
+  const totalMonitoreados = resumen?.resumenSistema.totalMonitoreados ?? 0;
+  const online = resumen?.resumenSistema.online ?? 0;
+  const offline = resumen?.resumenSistema.offline ?? 0;
+  
 
-        const normalized: MonitoringDevice[] = equipos.map((device: any) => {
-          const serviceTag = normalizarTag(device?.sistema?.idDispositivo);
-          const match = mapaIdentificados.get(serviceTag);
+function handleVerEquipo(alerta: HomeAlerta) {
+  const params = new URLSearchParams();
 
-          return {
-            hostname: device?.hostname ?? null,
-            ip: device?.ip ?? null,
-            mac: device?.mac ?? null,
-            usuario: device?.usuario ?? null,
-            empleado: match?.inventario?.nombre_completo ?? null,
-            idEmpleado: match?.inventario?.empleado_id != null
-              ? String(match.inventario.empleado_id)
-              : null,
-            departamento: match?.inventario?.departamento ?? null,
-            serviceTag:
-              match?.inventario?.service_tag ??
-              match?.sistema?.idDispositivo ??
-              device?.sistema?.idDispositivo ??
-              null,
-            plataforma: match?.plataforma ?? null,
-            tipoSistema: match?.tipoSistema ?? null,
-            uptime: match?.uptime ?? null,
-            ubicacion: match?.ubicacion ?? null,
-            fecha: device?.fecha ?? null,
-            lastSeen: device?.lastSeen ?? null,
-            estado: device?.estado ?? null,
+  if (alerta.equipo_id) {
+    params.set('equipo_id', String(alerta.equipo_id));
+  }
 
-            cpu: {
-              modelo: device?.cpu?.modelo ?? null,
-              nucleos: device?.cpu?.nucleos ?? null,
-              velocidad_mhz: device?.cpu?.velocidad_mhz ?? null,
-              temperatura: device?.cpu?.temperatura ?? null,
-            },
+  if (alerta.service_tag) {
+    params.set('service_tag', alerta.service_tag);
+  }
 
-            ram: {
-              totalGB: device?.ram?.totalGB ?? null,
-              libreGB: device?.ram?.libreGB ?? null,
-              usoGB: device?.ram?.usoGB ?? null,
-              porcentaje: device?.ram?.porcentaje ?? null,
-            },
+  if (alerta.hostname) {
+    params.set('hostname', alerta.hostname);
+  }
 
-            discos: Array.isArray(device?.discos)
-              ? device.discos.map((disco: any) => ({
-                  disco: disco?.disco ?? null,
-                  tamañoGB: disco?.tamañoGB ?? null,
-                  usadoGB: disco?.usadoGB ?? null,
-                  porcentaje: disco?.porcentaje ?? null,
-                }))
-              : [],
+  setModalAlertasOpen(false);
 
-            sistema: {
-              edicion: device?.sistema?.edicion ?? null,
-              version: device?.sistema?.version ?? null,
-              instalado: device?.sistema?.instalado ?? null,
-              build: device?.sistema?.build ?? null,
-              especificacion: device?.sistema?.especificacion ?? null,
-              idDispositivo: device?.sistema?.idDispositivo ?? null,
-              idProducto: device?.sistema?.idProducto ?? null,
-            },
+  navigate(`/inventory-new?${params.toString()}`);
+}
 
-            inventario: match?.inventario
-              ? {
-                  status: match.inventario?.status ?? null,
-                  nombre_completo: match.inventario?.nombre_completo ?? null,
-                  empleado_id: match.inventario?.empleado_id != null
-                    ? String(match.inventario.empleado_id)
-                    : null,
-                  departamento: match.inventario?.departamento ?? null,
-                  service_tag: match.inventario?.service_tag ?? null,
-                }
-              : null,
-          };
-        });
+function handleVerMonitoreo(alerta: HomeAlerta) {
+  const params = new URLSearchParams();
 
-        setDevices(normalized);
-      } catch (error) {
-        console.error('Error cargando datos del Home:', error);
-      }
-    };
+  if (alerta.monitoreo_id) {
+    params.set('monitoreo_id', String(alerta.monitoreo_id));
+  }
 
-    loadDevices();
-  }, [API_BASE]);
+  if (alerta.device_id) {
+    params.set('device_id', alerta.device_id);
+  }
 
-  // Últimas 24 horas - simulación
-  const last24Hours = {
-    newDevices: 2,
-    updatedDevices: 5,
-    alerts: 3,
-  };
+  if (alerta.service_tag) {
+    params.set('service_tag', alerta.service_tag);
+  }
 
-  const onlineDevices = useMemo(
-    () => devices.filter((d) => (d.estado ?? '').includes('Online')),
-    [devices]
-  );
+  if (alerta.hostname) {
+    params.set('hostname', alerta.hostname);
+  }
 
-  const offlineDevices = useMemo(
-    () => devices.filter((d) => (d.estado ?? '').includes('Offline')),
-    [devices]
-  );
+  setModalAlertasOpen(false);
 
-  const activeInventory = useMemo(
-    () => devices.filter((d) => (d.inventario?.status ?? '').toLowerCase() === 'activo'),
-    [devices]
-  );
-
-  // Equipos críticos (disco > 85%)
-  const criticalDevices = useMemo(
-    () =>
-      devices.filter((device) =>
-        device.discos.some((disco) => (disco.porcentaje ?? 0) > 85)
-      ),
-    [devices]
-  );
-
-  // Últimas actualizaciones (últimos 3 equipos)
-  const recentUpdates = useMemo(() => devices.slice(0, 3), [devices]);
+  navigate(`/dashboard?${params.toString()}`);
+}
 
   return (
     <div className="p-8 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-4xl font-bold text-gray-900">Bienvenido al Sistema IT</h1>
+        <h1 className="text-4xl font-bold text-gray-900">
+          Bienvenido al Sistema IT
+        </h1>
         <p className="text-gray-500 mt-2 text-lg">
           Resumen general y actualizaciones de las últimas 24 horas
         </p>
+
+        {loadingHome && (
+          <p className="mt-2 text-sm text-gray-400">
+            Actualizando información del sistema...
+          </p>
+        )}
       </div>
 
       {/* Estadísticas Principales */}
@@ -230,8 +165,10 @@ const [devices, setDevices] = useState<MonitoringDevice[]>([]);
             <Monitor className="h-5 w-5 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{devices.length}</div>
-            <p className="text-xs text-gray-500 mt-1">Monitoreo en tiempo real</p>
+            <div className="text-3xl font-bold">{totalEquipos}</div>
+            <p className="text-xs text-gray-500 mt-1">
+              Monitoreo en tiempo real
+            </p>
           </CardContent>
         </Card>
 
@@ -241,33 +178,44 @@ const [devices, setDevices] = useState<MonitoringDevice[]>([]);
             <Activity className="h-5 w-5 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-600">{onlineDevices.length}</div>
+            <div className="text-3xl font-bold text-green-600">
+              {equiposOnline}
+            </div>
             <p className="text-xs text-gray-500 mt-1">
-              {devices.length > 0
-                ? `${((onlineDevices.length / devices.length) * 100).toFixed(0)}% disponibilidad`
-                : '0% disponibilidad'}
+              {disponibilidad}% disponibilidad
             </p>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-purple-600">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Inventario Activo</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Inventario Activo
+            </CardTitle>
             <Package className="h-5 w-5 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-purple-600">{activeInventory.length}</div>
+            <div className="text-3xl font-bold text-purple-600">
+              {inventarioActivo}
+            </div>
             <p className="text-xs text-gray-500 mt-1">Equipos asignados</p>
           </CardContent>
         </Card>
 
-        <Card className="border-l-4 border-l-orange-600">
+        <Card
+          onClick={abrirModalAlertas}
+          className="border-l-4 border-l-orange-600 cursor-pointer transition hover:-translate-y-1 hover:shadow-md"
+        >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Alertas Críticas</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Alertas Críticas
+            </CardTitle>
             <AlertTriangle className="h-5 w-5 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-orange-600">{criticalDevices.length}</div>
+            <div className="text-3xl font-bold text-orange-600">
+              {alertasCriticas}
+            </div>
             <p className="text-xs text-gray-500 mt-1">Requieren atención</p>
           </CardContent>
         </Card>
@@ -282,6 +230,7 @@ const [devices, setDevices] = useState<MonitoringDevice[]>([]);
               <CardTitle>Actividad de las Últimas 24 Horas</CardTitle>
             </div>
           </CardHeader>
+
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
               <div className="flex items-center gap-3">
@@ -290,10 +239,15 @@ const [devices, setDevices] = useState<MonitoringDevice[]>([]);
                 </div>
                 <div>
                   <p className="font-semibold">Nuevos Equipos</p>
-                  <p className="text-sm text-gray-500">Registrados en el sistema</p>
+                  <p className="text-sm text-gray-500">
+                    Registrados en el sistema
+                  </p>
                 </div>
               </div>
-              <div className="text-2xl font-bold text-blue-600">{}</div>
+
+              <div className="text-2xl font-bold text-blue-600">
+                {actividad?.nuevosEquipos ?? 0}
+              </div>
             </div>
 
             <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
@@ -303,13 +257,21 @@ const [devices, setDevices] = useState<MonitoringDevice[]>([]);
                 </div>
                 <div>
                   <p className="font-semibold">Actualizaciones</p>
-                  <p className="text-sm text-gray-500">Cambios de configuración</p>
+                  <p className="text-sm text-gray-500">
+                    Cambios de configuración
+                  </p>
                 </div>
               </div>
-              <div className="text-2xl font-bold text-green-600">{}</div>
+
+              <div className="text-2xl font-bold text-green-600">
+                {actividad?.actualizaciones ?? 0}
+              </div>
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-orange-50 rounded-lg">
+            <div
+              onClick={abrirModalAlertas}
+              className="flex items-center justify-between p-4 bg-orange-50 rounded-lg cursor-pointer transition hover:bg-orange-100"
+            >
               <div className="flex items-center gap-3">
                 <div className="bg-orange-600 text-white p-2 rounded-full">
                   <AlertTriangle className="h-4 w-4" />
@@ -319,7 +281,10 @@ const [devices, setDevices] = useState<MonitoringDevice[]>([]);
                   <p className="text-sm text-gray-500">Problemas detectados</p>
                 </div>
               </div>
-              <div className="text-2xl font-bold text-orange-600">{}</div>
+
+              <div className="text-2xl font-bold text-orange-600">
+                {actividad?.nuevasAlertas ?? 0}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -329,40 +294,45 @@ const [devices, setDevices] = useState<MonitoringDevice[]>([]);
           <CardHeader>
             <CardTitle>Actualizaciones Recientes</CardTitle>
           </CardHeader>
+
           <CardContent>
-            <div className="space-y-4">
-              {recentUpdates.map((device, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="font-semibold font-mono text-sm">
-                        {device.hostname ?? 'NULL'}
+            {recientes.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-6 text-center text-sm text-gray-500">
+                No hay actualizaciones recientes.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {recientes.map((item, index) => (
+                  <div
+                    key={`${item.tipo}-${item.referencia_id}-${index}`}
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-semibold text-sm">
+                          {item.titulo}
+                        </p>
+
+                        <Badge variant="secondary" className="text-xs">
+                          {item.tipo.toUpperCase()}
+                        </Badge>
+                      </div>
+
+                      <p className="text-sm text-gray-500">
+                        {item.descripcion}
                       </p>
-                      <Badge
-                        variant={(device.estado ?? '').includes('Online') ? 'default' : 'destructive'}
-                        className="text-xs"
-                      >
-                        {device.estado ?? 'NULL'}
-                      </Badge>
+
+                      <p className="text-xs text-gray-400 mt-1">
+                        Fecha:{' '}
+                        {item.fecha
+                          ? new Date(item.fecha).toLocaleString('es-MX')
+                          : 'NULL'}
+                      </p>
                     </div>
-
-                    <p className="text-sm text-gray-500">
-                      {device.empleado ?? 'NULL'}
-                    </p>
-
-                    <p className="text-xs text-gray-400 mt-1">
-                      Última actualización:{' '}
-                      {device.lastSeen
-                        ? new Date(device.lastSeen).toLocaleString('es-MX')
-                        : 'NULL'}
-                    </p>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -372,28 +342,44 @@ const [devices, setDevices] = useState<MonitoringDevice[]>([]);
         <CardHeader>
           <CardTitle>Resumen del Sistema</CardTitle>
         </CardHeader>
+
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
               <Monitor className="h-8 w-8 text-blue-600 mx-auto mb-2" />
               <p className="text-sm text-gray-600 mb-1">Total Monitoreados</p>
-              <p className="text-3xl font-bold text-blue-600">{devices.length}</p>
+              <p className="text-3xl font-bold text-blue-600">
+                {totalMonitoreados}
+              </p>
             </div>
 
             <div className="text-center p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-lg">
               <Activity className="h-8 w-8 text-green-600 mx-auto mb-2" />
               <p className="text-sm text-gray-600 mb-1">Online</p>
-              <p className="text-3xl font-bold text-green-600">{onlineDevices.length}</p>
+              <p className="text-3xl font-bold text-green-600">
+                {online}
+              </p>
             </div>
 
             <div className="text-center p-6 bg-gradient-to-br from-red-50 to-red-100 rounded-lg">
               <AlertTriangle className="h-8 w-8 text-red-600 mx-auto mb-2" />
               <p className="text-sm text-gray-600 mb-1">Offline</p>
-              <p className="text-3xl font-bold text-red-600">{offlineDevices.length}</p>
+              <p className="text-3xl font-bold text-red-600">
+                {offline}
+              </p>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      <HomeAlertasModal
+        open={modalAlertasOpen}
+        alertas={alertas}
+        loading={loadingAlertas}
+        onClose={() => setModalAlertasOpen(false)}
+        onVerEquipo={handleVerEquipo}
+        onVerMonitoreo={handleVerMonitoreo}
+      />
     </div>
   );
 }
