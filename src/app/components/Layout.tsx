@@ -21,8 +21,8 @@ export function Layout() {
     { name: 'Inventario Viejo', path: '/inventory-old', icon: Package },
   ];
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 
@@ -75,7 +75,10 @@ export function Layout() {
         <div className="p-4 border-t border-blue-800 space-y-3">
           {isSidebarOpen && user && (
             <div className="text-xs text-blue-200 mb-2">
-              <p className="font-semibold">Usuario: {user}</p>
+              <p className="font-semibold">
+                Usuario: {user.nombre_completo || user.correo}
+              </p>
+              <p>{user.tipo_usuario}</p>
             </div>
           )}
 

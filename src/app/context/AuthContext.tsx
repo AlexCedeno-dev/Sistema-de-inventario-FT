@@ -1,35 +1,94 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from "react";
+import { apiRequest } from "../services/api";
+
+interface AuthUser {
+  usuario_id: number;
+  nombre_completo: string;
+  nomina?: string | null;
+  correo: string;
+  tipo_usuario: "IT" | "BECARIO";
+}
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  login: (username: string, password: string) => boolean;
-  logout: () => void;
-  user: string | null;
+  loading: boolean;
+  user: AuthUser | null;
+  login: (username: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
+  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<string | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const login = (username: string, password: string) => {
-    // Demo credentials - en producción esto sería una API call
-    if (username === 'admin' && password === 'admin123') {
-      setIsAuthenticated(true);
-      setUser(username);
-      return true;
+  const isAuthenticated = Boolean(user);
+
+  const refreshSession = async () => {
+    try {
+      const data = await apiRequest<{ ok: boolean; user: AuthUser }>("/auth/me");
+      setUser(data.user);
+    } catch {
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
-    return false;
   };
 
-  const logout = () => {
-    setIsAuthenticated(false);
-    setUser(null);
+  useEffect(() => {
+    refreshSession();
+  }, []);
+
+  const login = async (username: string, password: string) => {
+    try {
+      const data = await apiRequest<{ ok: boolean; user: AuthUser }>(
+        "/auth/login",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            username,
+            password,
+          }),
+        }
+      );
+
+      setUser(data.user);
+      return true;
+    } catch {
+      setUser(null);
+      return false;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await apiRequest("/auth/logout", {
+        method: "POST",
+      });
+    } finally {
+      setUser(null);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout, user }}>
+    <AuthContext.Provider
+      value={{
+        isAuthenticated,
+        loading,
+        user,
+        login,
+        logout,
+        refreshSession,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -37,8 +96,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
+
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
+
   return context;
 }

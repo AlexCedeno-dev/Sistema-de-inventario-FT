@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { useAuth } from "../context/AuthContext";
 import {
   Card,
@@ -16,17 +16,31 @@ import { toast } from "sonner";
 export function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const from = (location.state as { from?: string } | null)?.from || "/";
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (login(username, password)) {
+    setSubmitting(true);
+
+    const success = await login(username, password);
+
+    setSubmitting(false);
+
+    if (success) {
       toast.success("Inicio de sesión exitoso", {
-        description: `Bienvenido ${username}`,
+        description: "Bienvenido al sistema",
       });
-      navigate("/");
+
+      navigate(from, {
+        replace: true,
+      });
     } else {
       toast.error("Error de autenticación", {
         description: "Usuario o contraseña incorrectos",
@@ -35,43 +49,47 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-700 to-blue-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-950 via-blue-800 to-slate-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="bg-white p-4 rounded-full">
+            <div className="bg-white p-4 rounded-full shadow-lg">
               <Monitor className="h-12 w-12 text-blue-900" />
             </div>
           </div>
+
           <h1 className="text-4xl font-bold text-white mb-2">
-            Sistema IT
+            NodeGuard IT
           </h1>
+
           <p className="text-blue-200">
-            Gestión de Equipos de Cómputo
+            Inventario de Activos Fijos
           </p>
         </div>
 
-        <Card>
+        <Card className="shadow-2xl">
           <CardHeader>
             <CardTitle className="text-center">
               Iniciar Sesión
             </CardTitle>
           </CardHeader>
+
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="username">Usuario</Label>
+                <Label htmlFor="username">Correo o usuario</Label>
+
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+
                   <Input
                     id="username"
                     type="text"
-                    placeholder="Ingresa tu usuario"
+                    placeholder="admin@empresa.com"
                     value={username}
-                    onChange={(e) =>
-                      setUsername(e.target.value)
-                    }
+                    onChange={(e) => setUsername(e.target.value)}
                     className="pl-10"
+                    autoComplete="username"
                     required
                   />
                 </div>
@@ -79,35 +97,32 @@ export function Login() {
 
               <div className="space-y-2">
                 <Label htmlFor="password">Contraseña</Label>
+
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+
                   <Input
                     id="password"
                     type="password"
                     placeholder="Ingresa tu contraseña"
                     value={password}
-                    onChange={(e) =>
-                      setPassword(e.target.value)
-                    }
+                    onChange={(e) => setPassword(e.target.value)}
                     className="pl-10"
+                    autoComplete="current-password"
                     required
                   />
                 </div>
               </div>
 
-              <Button type="submit" className="w-full">
-                Ingresar al Sistema
+              <Button type="submit" className="w-full" disabled={submitting}>
+                {submitting ? "Validando..." : "Ingresar al Sistema"}
               </Button>
-
-              <div className="text-center text-sm text-gray-500 mt-4">
-                <p>Demo: admin / admin123</p>
-              </div>
             </form>
           </CardContent>
         </Card>
 
         <div className="text-center mt-6 text-blue-200 text-sm">
-          <p>© 2026 Sistema IT - Versión 1.0.0</p>
+          <p>© 2026 NodeGuard IT - Inventario Seguro</p>
         </div>
       </div>
     </div>

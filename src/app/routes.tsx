@@ -1,4 +1,6 @@
-import { createBrowserRouter, Navigate } from 'react-router';
+import { createBrowserRouter, Navigate, useLocation } from 'react-router';
+import type { ReactNode } from 'react';
+
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Inventory } from './pages/Inventory';
@@ -6,25 +8,48 @@ import { InventoryNew } from './pages/InventoryNew';
 import { Register } from './pages/Register';
 import { Login } from './pages/Login';
 import { Home } from './pages/Home';
-import {Agentes} from './pages/Agentes';
+import { Agentes } from './pages/Agentes';
 import { InventoryABC } from './pages/InventoryABC';
 import { useAuth } from './context/AuthContext';
 import { FirmaEquipo } from './pages/FirmaEquipo';
 import { HistorialEntregas } from './pages/HistorialEntregas';
 import { ValidarEquipoQR } from './pages/ValidarEquipoQR';
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+function ProtectedRoute({ children }: { children: ReactNode }) {
+  const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100">
+        <p className="text-slate-700 font-medium">Validando sesión...</p>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: `${location.pathname}${location.search}` }}
+      />
+    );
   }
 
   return <>{children}</>;
 }
 
-function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
+function PublicRoute({ children }: { children: ReactNode }) {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100">
+        <p className="text-slate-700 font-medium">Validando sesión...</p>
+      </div>
+    );
+  }
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
@@ -46,12 +71,12 @@ export const router = createBrowserRouter(
       ),
     },
     {
-      path:'firma/:token',
-      Component: FirmaEquipo
+      path: 'firma/:token',
+      Component: FirmaEquipo,
     },
     {
       path: 'validar-equipo/:token',
-      Component: ValidarEquipoQR
+      Component: ValidarEquipoQR,
     },
     {
       path: '/',
@@ -74,8 +99,8 @@ export const router = createBrowserRouter(
           Component: Inventory,
         },
         {
-        path: "inventory-abc",
-        Component: InventoryABC
+          path: 'inventory-abc',
+          Component: InventoryABC,
         },
         {
           path: 'inventory-new',
@@ -92,7 +117,7 @@ export const router = createBrowserRouter(
         {
           path: 'historial-entregas',
           Component: HistorialEntregas,
-        }
+        },
       ],
     },
   ],
