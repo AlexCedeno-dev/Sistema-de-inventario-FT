@@ -10,8 +10,9 @@ import {
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { Monitor, Lock, User } from "lucide-react";
+import { Monitor, Lock, User, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+const [showPassword, setShowPassword] = useState(false);
 
 export function Login() {
   const [username, setUsername] = useState("");
@@ -103,14 +104,27 @@ export function Login() {
 
                   <Input
                     id="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     placeholder="Ingresa tu contraseña"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 pr-10"
                     autoComplete="current-password"
                     required
                   />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
                 </div>
               </div>
 
