@@ -40,7 +40,10 @@ export function Agentes() {
   });
 
   
-    const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3006";
+    const API_BASE =
+      import.meta.env.DEV
+        ? import.meta.env.VITE_API_URL || "http://localhost:3006"
+        : window.location.origin;
 
     const descargarPaqueteAgente = () => {
       const url = `${API_BASE}/api/nodeguard/agent-pack`;

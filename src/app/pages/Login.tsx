@@ -12,12 +12,13 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Monitor, Lock, User, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-const [showPassword, setShowPassword] = useState(false);
+
 
 export function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const { login } = useAuth();
   const navigate = useNavigate();

@@ -5,7 +5,10 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { LiberacionDetalleModal } from '../components/modalsofinvenory/LiberacionDetalleModal';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3006';
+const API_BASE =
+  import.meta.env.DEV
+    ? import.meta.env.VITE_API_URL || 'http://localhost:3006'
+    : window.location.origin;
 
 type Filtro = 'hoy' | 'semana' | 'mes';
 type TipoHistorial = 'entregas' | 'liberaciones';
